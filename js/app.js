@@ -13,6 +13,7 @@
   let landmarks = [];
   let currentPresetId = "composite";
   let currentQuizStar = null;
+  let currentTheme = "light";
 
   document.addEventListener("DOMContentLoaded", () => {
     // 1. KaTeX 数式レンダリング初期化
@@ -41,6 +42,7 @@
     initStep3Controls();
     initToolbarAndModal();
     initFirstMagSelector();
+    initThemeToggle();
 
     // 5. 初期表示の反映
     populateRawTable(currentStars);
@@ -739,5 +741,62 @@
     }
 
     hrChart.setOption("yAxisMode", mode);
+  }
+
+  /**
+   * 白黒反転（通常モード ⇄ 暗室・夜間観測モード）の切替制御
+   */
+  function initThemeToggle() {
+    const btnToggle = document.getElementById("btn-toggle-theme");
+    const savedTheme = localStorage.getItem("hr_chart_theme") || "light";
+    applyTheme(savedTheme, false);
+
+    if (btnToggle) {
+      btnToggle.addEventListener("click", () => {
+        const nextTheme = currentTheme === "dark" ? "light" : "dark";
+        applyTheme(nextTheme, true);
+      });
+    }
+
+    // キーボードショートカット [D] または [d] でモード切替（入力フォーム操作中を除く）
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "d" || e.key === "D") {
+        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
+        if (activeTag === "input" || activeTag === "textarea" || activeTag === "select") {
+          return;
+        }
+        const nextTheme = currentTheme === "dark" ? "light" : "dark";
+        applyTheme(nextTheme, true);
+      }
+    });
+  }
+
+  function applyTheme(theme, persist = true) {
+    currentTheme = theme;
+    const isDark = theme === "dark";
+    if (isDark) {
+      document.body.classList.add("dark-theme");
+    } else {
+      document.body.classList.remove("dark-theme");
+    }
+
+    const iconEl = document.getElementById("theme-icon");
+    const textEl = document.getElementById("theme-text");
+    if (iconEl && textEl) {
+      iconEl.textContent = isDark ? "☀️" : "🌙";
+      textEl.textContent = isDark ? "通常表示" : "反転表示";
+    }
+
+    if (hrChart) {
+      hrChart.setOption("theme", theme);
+    }
+
+    if (persist) {
+      try {
+        localStorage.setItem("hr_chart_theme", theme);
+      } catch (e) {
+        // ignore localStorage error
+      }
+    }
   }
 })();

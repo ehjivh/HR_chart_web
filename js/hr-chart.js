@@ -32,7 +32,8 @@ window.HRChartRenderer = (function () {
         showRadiusLines: true,      // 等半径線 (0.01〜100 R_sun)
         showRegions: true,          // 分類領域（主系列・赤色巨星・超巨星・白色矮星）
         showLandmarks: true,        // 太陽・著名恒星ランドマーク
-        interactionMode: "inspect"  // "inspect" (ズーム＆クリック選択) | "brush" (矩形領域選択)
+        interactionMode: "inspect", // "inspect" (ズーム＆クリック選択) | "brush" (矩形領域選択)
+        theme: "light"              // "light" (通常白背景) | "dark" (白黒反転・暗室夜間モード)
       };
 
       // アニメーション補間用 (m_G ⇄ M_G 遷移)
@@ -132,7 +133,7 @@ window.HRChartRenderer = (function () {
       // ホバーツールチップ (厳格な白黒モノトーン)
       this.tooltip = document.createElement("div");
       this.tooltip.className =
-        "pointer-events-none absolute z-30 hidden bg-white border border-neutral-900 px-3 py-2 text-xs text-neutral-900 shadow-sm font-mono-num";
+        "pointer-events-none absolute z-30 hidden hr-chart-tooltip bg-white border border-neutral-900 px-3 py-2 text-xs text-neutral-900 shadow-sm font-mono-num";
       this.tooltip.style.minWidth = "225px";
       this.container.appendChild(this.tooltip);
     }
@@ -411,39 +412,44 @@ window.HRChartRenderer = (function () {
     }
 
     showTooltip(star, mx, my) {
+      const isDark = this.options.theme === "dark";
       const badgeLabel = star.isFirstMag
-        ? `<span class="text-[10px] px-1 bg-neutral-900 text-white font-bold">一等星 / ${star.spectralType}</span>`
-        : `<span class="text-[10px] px-1 border border-neutral-800">${star.spectralType}</span>`;
+        ? `<span class="text-[10px] px-1 ${isDark ? "bg-white text-neutral-950 font-bold" : "bg-neutral-900 text-white font-bold"}">一等星 / ${star.spectralType}</span>`
+        : `<span class="text-[10px] px-1 border ${isDark ? "border-neutral-500 text-neutral-300" : "border-neutral-800"}">${star.spectralType}</span>`;
 
+      const borderTitleClass = isDark ? "border-neutral-700" : "border-neutral-300";
       const title = star.name
-        ? `<div class="font-bold border-b border-neutral-300 pb-1 mb-1 flex items-center justify-between gap-2">
+        ? `<div class="font-bold border-b ${borderTitleClass} pb-1 mb-1 flex items-center justify-between gap-2">
              <span>${star.name}</span>
              ${badgeLabel}
            </div>`
-        : `<div class="font-bold border-b border-neutral-300 pb-1 mb-1 flex items-center justify-between gap-2">
+        : `<div class="font-bold border-b ${borderTitleClass} pb-1 mb-1 flex items-center justify-between gap-2">
              <span>Gaia DR3 ${String(star.id).slice(0, 12)}</span>
              ${badgeLabel}
            </div>`;
 
+      const labelColor = isDark ? "text-neutral-400" : "text-neutral-500";
+      const borderFooterClass = isDark ? "border-neutral-700 text-neutral-400" : "border-neutral-200 text-neutral-500";
+
       this.tooltip.innerHTML = `
         ${title}
         <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px]">
-          <span class="text-neutral-500">分類:</span>
+          <span class="${labelColor}">分類:</span>
           <span class="font-semibold text-right">${star.regionNameJa}</span>
-          <span class="text-neutral-500">視等級 m_G:</span>
+          <span class="${labelColor}">視等級 m_G:</span>
           <span class="text-right">${star.m_G.toFixed(2)} mag</span>
-          <span class="text-neutral-500">年周視差 ϖ:</span>
+          <span class="${labelColor}">年周視差 ϖ:</span>
           <span class="text-right">${star.parallax.toFixed(2)} mas (${star.distancePc ? star.distancePc.toFixed(1) + " pc" : "-"})</span>
-          <span class="text-neutral-500">絶対等級 M_G:</span>
+          <span class="${labelColor}">絶対等級 M_G:</span>
           <span class="font-bold text-right">${star.M_G.toFixed(2)} mag</span>
-          <span class="text-neutral-500">色指数 BP-RP:</span>
+          <span class="${labelColor}">色指数 BP-RP:</span>
           <span class="text-right">${star.bp_rp.toFixed(2)} mag</span>
-          <span class="text-neutral-500">有効温度 T_eff:</span>
+          <span class="${labelColor}">有効温度 T_eff:</span>
           <span class="font-bold text-right">${Math.round(star.teff).toLocaleString()} K</span>
-          <span class="text-neutral-500">光度 / 半径:</span>
+          <span class="${labelColor}">光度 / 半径:</span>
           <span class="text-right">${this.formatSci(star.luminositySolar)} L☉ / ${this.formatSci(star.radiusSolar)} R☉</span>
         </div>
-        <div class="mt-1 pt-1 border-t border-neutral-200 text-[10px] text-neutral-500 text-center">
+        <div class="mt-1 pt-1 border-t ${borderFooterClass} text-[10px] text-center">
           クリックで物理量算出プロセスを展開
         </div>
       `;
@@ -481,8 +487,12 @@ window.HRChartRenderer = (function () {
      * SVGレイヤー（白黒グリッド・反転軸・有効温度上軸・太陽光度右軸・分類領域）の描画
      */
     renderAxesAndSVG() {
+      const isDark = this.options.theme === "dark";
       const w = this.innerWidth;
       const h = this.innerHeight;
+      const primaryTextColor = isDark ? "#f5f5f5" : "#0a0a0a";
+      const borderColor = isDark ? "#e5e5e5" : "#171717";
+      const secondaryTextColor = isDark ? "#a3a3a3" : "#525252";
 
       // 1. グリッド線
       const xAxisGrid = d3.axisBottom(this.xScale).ticks(8).tickSize(-h).tickFormat("");
@@ -498,6 +508,7 @@ window.HRChartRenderer = (function () {
       this.labelBottom
         .attr("x", w / 2)
         .attr("y", h + 38)
+        .attr("fill", primaryTextColor)
         .text(
           this.options.xAxisMode === "bv"
             ? "色指数 B − V [mag]  （← 高温・青  |  低温・赤 →）"
@@ -511,6 +522,7 @@ window.HRChartRenderer = (function () {
       this.labelLeft
         .attr("x", -h / 2)
         .attr("y", -42)
+        .attr("fill", primaryTextColor)
         .text(
           this.yTransitionProgress > 0.5
             ? "絶対等級 M_G [mag] （10 pc 基準の真の明るさ ↑ 明 / 暗 ↓）"
@@ -538,7 +550,7 @@ window.HRChartRenderer = (function () {
         .attr("x2", w)
         .attr("y1", 0)
         .attr("y2", 0)
-        .attr("stroke", "#171717");
+        .attr("stroke", borderColor);
 
       validTempTicks.forEach((tk) => {
         this.gAxisTop
@@ -547,12 +559,13 @@ window.HRChartRenderer = (function () {
           .attr("x2", tk.x)
           .attr("y1", 0)
           .attr("y2", 5)
-          .attr("stroke", "#171717");
+          .attr("stroke", borderColor);
         this.gAxisTop
           .append("text")
           .attr("x", tk.x)
           .attr("y", -7)
           .attr("text-anchor", "middle")
+          .attr("fill", primaryTextColor)
           .text(`${tk.teff.toLocaleString()}K`);
       });
 
@@ -584,7 +597,7 @@ window.HRChartRenderer = (function () {
             .attr("x", (x1 + x2) / 2)
             .attr("y", 14)
             .attr("text-anchor", "middle")
-            .attr("fill", "#525252")
+            .attr("fill", secondaryTextColor)
             .attr("font-size", "10px")
             .attr("font-weight", "700")
             .attr("font-family", "JetBrains Mono, monospace")
@@ -595,6 +608,7 @@ window.HRChartRenderer = (function () {
       this.labelTop
         .attr("x", w / 2)
         .attr("y", -28)
+        .attr("fill", primaryTextColor)
         .text("有効温度 T_eff [K]  および スペクトル分類 (O・B・A・F・G・K・M)");
 
       // 5. 右軸: 太陽光度比 L / L_sun (絶対等級モード時)
@@ -606,7 +620,7 @@ window.HRChartRenderer = (function () {
         .attr("x2", 0)
         .attr("y1", 0)
         .attr("y2", h)
-        .attr("stroke", "#171717");
+        .attr("stroke", borderColor);
 
       if (this.yTransitionProgress > 0.5) {
         const logLums = [-4, -3, -2, -1, 0, 1, 2, 3, 4, 5];
@@ -622,19 +636,21 @@ window.HRChartRenderer = (function () {
               .attr("x2", -5)
               .attr("y1", y)
               .attr("y2", y)
-              .attr("stroke", "#171717");
+              .attr("stroke", borderColor);
             const labelStr = logL === 0 ? "1 L☉" : `10^${logL}`;
             this.gAxisRight
               .append("text")
               .attr("x", 7)
               .attr("y", y + 3)
               .attr("text-anchor", "start")
+              .attr("fill", primaryTextColor)
               .text(labelStr);
           }
         });
         this.labelRight
           .attr("x", h / 2)
           .attr("y", -w - 48)
+          .attr("fill", primaryTextColor)
           .text("太陽光度比 L / L☉");
       } else {
         this.labelRight.text("");
@@ -666,8 +682,8 @@ window.HRChartRenderer = (function () {
               .attr("y", -10)
               .attr("width", 168)
               .attr("height", 18)
-              .attr("fill", "rgba(255, 255, 255, 0.84)")
-              .attr("stroke", "#525252")
+              .attr("fill", isDark ? "rgba(20, 20, 20, 0.88)" : "rgba(255, 255, 255, 0.84)")
+              .attr("stroke", isDark ? "#888888" : "#525252")
               .attr("stroke-width", 0.8)
               .attr("stroke-dasharray", "2,2");
 
@@ -675,7 +691,7 @@ window.HRChartRenderer = (function () {
               .append("text")
               .attr("text-anchor", "middle")
               .attr("y", 2)
-              .attr("fill", "#262626")
+              .attr("fill", isDark ? "#f5f5f5" : "#262626")
               .attr("font-size", "10px")
               .attr("font-weight", "600")
               .text(ra.label);
@@ -739,9 +755,10 @@ window.HRChartRenderer = (function () {
     }
 
     drawEqualRadiusLines(ctx) {
+      const isDark = this.options.theme === "dark";
       const lines = Astrophysics.generateEqualRadiusLines();
       ctx.save();
-      ctx.strokeStyle = "#a3a3a3";
+      ctx.strokeStyle = isDark ? "#484848" : "#a3a3a3";
       ctx.lineWidth = 1.0;
       ctx.setLineDash([4, 4]);
 
@@ -775,7 +792,7 @@ window.HRChartRenderer = (function () {
             ctx.save();
             ctx.setLineDash([]);
             ctx.font = "10px 'JetBrains Mono', monospace";
-            ctx.fillStyle = "#525252";
+            ctx.fillStyle = isDark ? "#8e8e8e" : "#525252";
             ctx.fillText(line.label, lx + 4, ly - 4);
             ctx.restore();
           }
@@ -786,6 +803,7 @@ window.HRChartRenderer = (function () {
     }
 
     drawStarPoints(ctx) {
+      const isDark = this.options.theme === "dark";
       const hasBrush = this.brushedStars.length > 0;
       const brushedSet = hasBrush ? new Set(this.brushedStars) : null;
 
@@ -809,25 +827,26 @@ window.HRChartRenderer = (function () {
 
         // 仕様書第3節：恒星プロットに表面温度に応じた色温度を使用
         ctx.fillStyle = s.colorHex;
-        ctx.globalAlpha = isBrushed ? 0.92 : 0.18;
+        ctx.globalAlpha = isBrushed ? 0.92 : (isDark ? 0.14 : 0.18);
         ctx.fill();
 
-        // 白背景での視認性を高める極細のモノトーン輪郭線
-        ctx.lineWidth = isBrushed ? 0.85 : 0.4;
-        ctx.strokeStyle = "#171717";
+        // 輪郭線: 通常表示では極細の黒、白黒反転(夜間モード)では極細の明色で恒星の輝きを表現
+        ctx.lineWidth = isBrushed ? (isDark ? 0.8 : 0.85) : 0.4;
+        ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.42)" : "#171717";
         ctx.stroke();
       }
       ctx.globalAlpha = 1.0;
     }
 
     drawIsochroneCurve(ctx, logAgeYr, isPrimary) {
+      const isDark = this.options.theme === "dark";
       const iso = Astrophysics.generateIsochrone(logAgeYr);
       const pts = iso.points;
       if (pts.length < 2) return;
 
       ctx.save();
 
-      // 1. 下地の黒ケーシング（白背景上で黄色・白色領域の等年齢線を明瞭にするため）
+      // 1. 下地のケーシング（明暗背景で黄色・白色領域の等年齢線を明瞭にするため）
       ctx.beginPath();
       pts.forEach((pt, idx) => {
         const ci =
@@ -837,7 +856,9 @@ window.HRChartRenderer = (function () {
         if (idx === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       });
-      ctx.strokeStyle = isPrimary ? "#0a0a0a" : "#737373";
+      ctx.strokeStyle = isPrimary
+        ? (isDark ? "#ffffff" : "#0a0a0a")
+        : (isDark ? "#888888" : "#737373");
       ctx.lineWidth = isPrimary ? 4.2 : 1.6;
       if (!isPrimary) ctx.setLineDash([3, 3]);
       ctx.stroke();
@@ -870,10 +891,10 @@ window.HRChartRenderer = (function () {
         if (tx > 5 && tx < this.innerWidth - 5 && ty > 5 && ty < this.innerHeight - 5) {
           ctx.beginPath();
           ctx.arc(tx, ty, 5, 0, Math.PI * 2);
-          ctx.fillStyle = "#ffffff";
+          ctx.fillStyle = isDark ? "#0a0a0a" : "#ffffff";
           ctx.fill();
           ctx.lineWidth = 2;
-          ctx.strokeStyle = "#0a0a0a";
+          ctx.strokeStyle = isDark ? "#ffffff" : "#0a0a0a";
           ctx.stroke();
 
           const labelText = `MSTO (離脱点): 年齢 ${iso.ageTextJa}`;
@@ -882,13 +903,13 @@ window.HRChartRenderer = (function () {
           const bx = Math.min(this.innerWidth - tw - 16, Math.max(6, tx - tw - 14));
           const by = Math.max(18, ty - 10);
 
-          ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+          ctx.fillStyle = isDark ? "rgba(18, 18, 18, 0.94)" : "rgba(255, 255, 255, 0.92)";
           ctx.fillRect(bx - 4, by - 11, tw + 8, 16);
-          ctx.strokeStyle = "#0a0a0a";
+          ctx.strokeStyle = isDark ? "#ffffff" : "#0a0a0a";
           ctx.lineWidth = 1;
           ctx.strokeRect(bx - 4, by - 11, tw + 8, 16);
 
-          ctx.fillStyle = "#0a0a0a";
+          ctx.fillStyle = isDark ? "#ffffff" : "#0a0a0a";
           ctx.fillText(labelText, bx, by);
         }
       } else {
@@ -899,7 +920,7 @@ window.HRChartRenderer = (function () {
         const ty = this.yScale(to.M_G);
         ctx.setLineDash([]);
         ctx.font = "9px 'JetBrains Mono', monospace";
-        ctx.fillStyle = "#404040";
+        ctx.fillStyle = isDark ? "#d4d4d4" : "#404040";
         ctx.fillText(`${iso.ageTextJa}`, tx - 28, ty - 6);
       }
 
@@ -910,6 +931,7 @@ window.HRChartRenderer = (function () {
      * 全21個の一等星＋太陽・代表星のマーカーと日本語ラベル（重なり自動回避＆クリック選択対応）を描画
      */
     drawLandmarks(ctx) {
+      const isDark = this.options.theme === "dark";
       ctx.save();
       ctx.font = "bold 10.5px 'Inter', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif";
 
@@ -984,7 +1006,9 @@ window.HRChartRenderer = (function () {
           ctx.beginPath();
           ctx.moveTo(it.x, it.y);
           ctx.lineTo(targetX, targetY);
-          ctx.strokeStyle = it.isActive ? "#0a0a0a" : "#737373";
+          ctx.strokeStyle = it.isActive
+            ? (isDark ? "#ffffff" : "#0a0a0a")
+            : (isDark ? "#888888" : "#737373");
           ctx.lineWidth = it.isActive ? 1.5 : 0.9;
           ctx.stroke();
         }
@@ -998,7 +1022,7 @@ window.HRChartRenderer = (function () {
         ctx.translate(it.x, it.y);
         ctx.rotate(Math.PI / 4);
         ctx.fillStyle = lm.colorHex;
-        ctx.strokeStyle = "#0a0a0a";
+        ctx.strokeStyle = isDark ? "#ffffff" : "#0a0a0a";
         ctx.lineWidth = it.isActive ? 2.0 : 1.3;
         ctx.fillRect(-sz, -sz, sz * 2, sz * 2);
         ctx.strokeRect(-sz, -sz, sz * 2, sz * 2);
@@ -1008,15 +1032,29 @@ window.HRChartRenderer = (function () {
       // 3. クリック可能な日本語ラベルピルボックスを描画（選択中のものを最前面へ）
       const sortedForDraw = visibleItems.slice().sort((a, b) => (a.isActive ? 1 : 0) - (b.isActive ? 1 : 0));
       sortedForDraw.forEach((it) => {
-        ctx.fillStyle = it.isActive ? "#0a0a0a" : "rgba(255, 255, 255, 0.92)";
-        ctx.fillRect(it.boxX, it.boxY, it.boxW, it.boxH);
+        if (it.isActive) {
+          ctx.fillStyle = isDark ? "#ffffff" : "#0a0a0a";
+          ctx.fillRect(it.boxX, it.boxY, it.boxW, it.boxH);
 
-        ctx.strokeStyle = it.isActive ? "#0a0a0a" : it.star.isFirstMag ? "#262626" : "#737373";
-        ctx.lineWidth = it.isActive ? 1.5 : 0.9;
-        ctx.strokeRect(it.boxX, it.boxY, it.boxW, it.boxH);
+          ctx.strokeStyle = isDark ? "#ffffff" : "#0a0a0a";
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(it.boxX, it.boxY, it.boxW, it.boxH);
 
-        ctx.fillStyle = it.isActive ? "#ffffff" : "#0a0a0a";
-        ctx.fillText(it.text, it.boxX + 4, it.boxY + 11.5);
+          ctx.fillStyle = isDark ? "#0a0a0a" : "#ffffff";
+          ctx.fillText(it.text, it.boxX + 4, it.boxY + 11.5);
+        } else {
+          ctx.fillStyle = isDark ? "rgba(22, 22, 22, 0.94)" : "rgba(255, 255, 255, 0.92)";
+          ctx.fillRect(it.boxX, it.boxY, it.boxW, it.boxH);
+
+          ctx.strokeStyle = isDark
+            ? (it.star.isFirstMag ? "#e5e5e5" : "#737373")
+            : (it.star.isFirstMag ? "#262626" : "#737373");
+          ctx.lineWidth = 0.9;
+          ctx.strokeRect(it.boxX, it.boxY, it.boxW, it.boxH);
+
+          ctx.fillStyle = isDark ? "#f5f5f5" : "#0a0a0a";
+          ctx.fillText(it.text, it.boxX + 4, it.boxY + 11.5);
+        }
       });
 
       this.landmarkLabelBoxes = visibleItems;
@@ -1024,12 +1062,13 @@ window.HRChartRenderer = (function () {
     }
 
     drawTargetRing(ctx, star, isSelected) {
+      const isDark = this.options.theme === "dark";
       const x = this.getStarX(star);
       const y = this.getStarY(star);
       if (x < -20 || x > this.innerWidth + 20 || y < -20 || y > this.innerHeight + 20) return;
 
       ctx.save();
-      ctx.strokeStyle = "#0a0a0a";
+      ctx.strokeStyle = isDark ? "#ffffff" : "#0a0a0a";
       ctx.lineWidth = isSelected ? 1.8 : 1.2;
 
       // 外周リング

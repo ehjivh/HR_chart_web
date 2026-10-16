@@ -1,6 +1,7 @@
 /* ==========================================================================
    教育・研究用 WebベースHR図学習システム
    デザインポリシー: 白黒ベース（モノトーン基調）＋ 散布図・等年齢線のみ物理的色彩を限定使用
+   通常表示 (Light) と 白黒反転表示 (Dark / 夜間・暗室モード) の両対応
    ========================================================================== */
 
 :root {
@@ -13,6 +14,24 @@
   --border-strong: #171717;
   --border-subtle: #d4d4d4;
   --border-light: #e5e5e5;
+  --scrollbar-track: #f5f5f5;
+  --scrollbar-thumb: #a3a3a3;
+  --scrollbar-thumb-hover: #525252;
+}
+
+body.dark-theme {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #141414;
+  --bg-tertiary: #1f1f1f;
+  --text-primary: #f5f5f5;
+  --text-secondary: #d4d4d4;
+  --text-muted: #a3a3a3;
+  --border-strong: #e5e5e5;
+  --border-subtle: #404040;
+  --border-light: #262626;
+  --scrollbar-track: #171717;
+  --scrollbar-thumb: #525252;
+  --scrollbar-thumb-hover: #888888;
 }
 
 * {
@@ -26,6 +45,7 @@ body {
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* 学術論文・数式・数値用フォント */
@@ -45,15 +65,15 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f5f5f5;
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #a3a3a3;
+  background: var(--scrollbar-thumb);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #525252;
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* 3段階プロセスタブのアクティブ状態 */
@@ -62,14 +82,14 @@ body {
 }
 
 .step-tab.active {
-  background-color: #0a0a0a;
-  color: #ffffff;
-  border-color: #0a0a0a;
+  background-color: var(--border-strong);
+  color: var(--bg-primary);
+  border-color: var(--border-strong);
 }
 
 .step-tab.active .step-badge {
-  background-color: #ffffff;
-  color: #0a0a0a;
+  background-color: var(--bg-primary);
+  color: var(--border-strong);
 }
 
 /* モノトーンスライダー */
@@ -78,7 +98,7 @@ input[type="range"].monotone-slider {
   appearance: none;
   width: 100%;
   height: 4px;
-  background: #d4d4d4;
+  background: var(--border-subtle);
   outline: none;
   border-radius: 0;
 }
@@ -88,18 +108,18 @@ input[type="range"].monotone-slider::-webkit-slider-thumb {
   appearance: none;
   width: 14px;
   height: 14px;
-  background: #0a0a0a;
-  border: 2px solid #ffffff;
-  outline: 1px solid #0a0a0a;
+  background: var(--text-primary);
+  border: 2px solid var(--bg-primary);
+  outline: 1px solid var(--border-strong);
   cursor: pointer;
 }
 
 input[type="range"].monotone-slider::-moz-range-thumb {
   width: 14px;
   height: 14px;
-  background: #0a0a0a;
-  border: 2px solid #ffffff;
-  outline: 1px solid #0a0a0a;
+  background: var(--text-primary);
+  border: 2px solid var(--bg-primary);
+  outline: 1px solid var(--border-strong);
   cursor: pointer;
   border-radius: 0;
 }
@@ -107,19 +127,19 @@ input[type="range"].monotone-slider::-moz-range-thumb {
 /* D3 SVG 軸スタイル（学術論文図表風：白黒厳守・内向き目盛り） */
 .hr-axis path,
 .hr-axis line {
-  stroke: #171717;
+  stroke: var(--border-strong);
   stroke-width: 1px;
   shape-rendering: crispEdges;
 }
 
 .hr-axis text {
-  fill: #0a0a0a;
+  fill: var(--text-primary);
   font-family: "JetBrains Mono", "Consolas", monospace;
   font-size: 11px;
 }
 
 .hr-grid line {
-  stroke: #e5e5e5;
+  stroke: var(--border-light);
   stroke-width: 1px;
   stroke-dasharray: 2, 2;
   shape-rendering: crispEdges;
@@ -132,9 +152,14 @@ input[type="range"].monotone-slider::-moz-range-thumb {
 /* 領域選択ブラシ（白黒モノトーン厳守） */
 .brush .selection {
   fill: rgba(0, 0, 0, 0.06);
-  stroke: #0a0a0a;
+  stroke: var(--border-strong);
   stroke-width: 1px;
   stroke-dasharray: 4, 2;
+}
+
+body.dark-theme .brush .selection {
+  fill: rgba(255, 255, 255, 0.08);
+  stroke: #f5f5f5;
 }
 
 /* 物理的色温度バー（散布図の凡例としてのみカラー許可） */
@@ -155,17 +180,155 @@ input[type="range"].monotone-slider::-moz-range-thumb {
 
 /* テーブル行の選択状態 */
 .star-row-selected {
-  background-color: #171717 !important;
-  color: #ffffff !important;
+  background-color: var(--border-strong) !important;
+  color: var(--bg-primary) !important;
 }
 
 .star-row-selected td {
-  color: #ffffff !important;
+  color: var(--bg-primary) !important;
 }
 
 /* モーダル背景 */
 .modal-backdrop {
-  background-color: rgba(10, 10, 10, 0.65);
-  backdrop-filter: blur(1px);
+  background-color: rgba(10, 10, 10, 0.72);
+  backdrop-filter: blur(2px);
 }
+
+/* ==========================================================================
+   白黒反転（ダークテーマ / 夜間モード）のUI上書きスタイル
+   ========================================================================== */
+
+body.dark-theme {
+  background-color: #0a0a0a !important;
+  color: #f5f5f5 !important;
+}
+
+/* 背景色の反転 */
+body.dark-theme .bg-white {
+  background-color: #121212 !important;
+}
+
+body.dark-theme .bg-neutral-50 {
+  background-color: #0a0a0a !important;
+}
+
+body.dark-theme .bg-neutral-100 {
+  background-color: #1a1a1a !important;
+}
+
+body.dark-theme .bg-neutral-200 {
+  background-color: #262626 !important;
+}
+
+/* 黒背景だったボタンやバッジの反転 */
+body.dark-theme .bg-neutral-950,
+body.dark-theme .bg-neutral-900 {
+  background-color: #f5f5f5 !important;
+  color: #0a0a0a !important;
+}
+
+body.dark-theme .bg-neutral-950 * {
+  color: #0a0a0a !important;
+}
+
+/* 文字色の反転 */
+body.dark-theme .text-neutral-950,
+body.dark-theme .text-neutral-900,
+body.dark-theme .text-neutral-800 {
+  color: #f5f5f5 !important;
+}
+
+body.dark-theme .text-neutral-700,
+body.dark-theme .text-neutral-600 {
+  color: #c4c4c4 !important;
+}
+
+body.dark-theme .text-neutral-500 {
+  color: #999999 !important;
+}
+
+/* 境界線の反転 */
+body.dark-theme .border-neutral-950,
+body.dark-theme .border-neutral-900,
+body.dark-theme .border-neutral-800 {
+  border-color: #525252 !important;
+}
+
+body.dark-theme .border-neutral-400,
+body.dark-theme .border-neutral-300,
+body.dark-theme .border-neutral-200 {
+  border-color: #2b2b2b !important;
+}
+
+body.dark-theme .divide-neutral-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #262626 !important;
+}
+
+/* フォームコントロールの反転 */
+body.dark-theme select,
+body.dark-theme input[type="text"],
+body.dark-theme input[type="number"],
+body.dark-theme textarea {
+  background-color: #181818 !important;
+  color: #f5f5f5 !important;
+  border-color: #525252 !important;
+}
+
+body.dark-theme select option {
+  background-color: #181818;
+  color: #f5f5f5;
+}
+
+/* テーブルのホバー効果 */
+body.dark-theme #tbody-raw-stars tr:hover {
+  background-color: #262626 !important;
+}
+
+/* 一等星ピルボタンのダークモード */
+body.dark-theme .first-mag-pill.bg-white {
+  background-color: #181818 !important;
+  color: #f5f5f5 !important;
+  border-color: #404040 !important;
+}
+
+body.dark-theme .first-mag-pill.bg-white:hover {
+  background-color: #2a2a2a !important;
+}
+
+body.dark-theme .first-mag-pill.bg-neutral-950 {
+  background-color: #ffffff !important;
+  color: #0a0a0a !important;
+  border-color: #ffffff !important;
+}
+
+/* ツールチップのダークモード対応 */
+body.dark-theme .hr-chart-tooltip {
+  background-color: #1a1a1a !important;
+  color: #f5f5f5 !important;
+  border-color: #e5e5e5 !important;
+}
+
+/* モーダルコンテンツのダークモード対応 */
+body.dark-theme #modal-framework-guide > div {
+  background-color: #141414 !important;
+  border-color: #e5e5e5 !important;
+}
+
+/* HR図キャンバスコンテナのダークモード対応 */
+body.dark-theme #hr-chart-container,
+body.dark-theme #hr-chart-container canvas {
+  background-color: #0a0a0a !important;
+}
+
+/* ダークモード時のホバー背景 */
+body.dark-theme .hover\:bg-neutral-100:hover,
+body.dark-theme .hover\:bg-neutral-200:hover {
+  background-color: #262626 !important;
+}
+
+/* ダークモード時のKaTeX数式文字色 */
+body.dark-theme .katex {
+  color: #f5f5f5 !important;
+}
+
 
