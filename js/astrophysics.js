@@ -139,8 +139,8 @@ window.Astrophysics = (function () {
       };
     }
 
-    // 超巨星領域: 極めて明るい (M_G < -2.2)
-    if (absMagG < -2.2) {
+    // 超巨星領域: 極めて明るい (M_G < -4.2、または BP-RP > -0.1 で M_G < -2.4)
+    if (absMagG < -4.2 || (bpRp > -0.1 && absMagG < -2.4)) {
       return {
         id: "supergiant",
         nameJa: "超巨星・輝巨星",
@@ -308,7 +308,7 @@ window.Astrophysics = (function () {
     ];
 
     if (teff <= stops[0].t) return rgbToHex(stops[0].rgb);
-    if (teff >= stops[stops.length - 1].t) return rgbToHex(stops[stops.length - 1].rgb);
+    if (teff >= stops[stops.length - 1].t) return rgbToHex(stops[stops.length - 1].t ? stops[stops.length - 1].rgb : [82, 126, 250]);
 
     for (let i = 0; i < stops.length - 1; i++) {
       const a = stops[i];
@@ -361,6 +361,9 @@ window.Astrophysics = (function () {
     return {
       id: rawStar.id || String(rawStar.source_id || rawStar.Source || `STAR-${index + 1}`),
       name: rawStar.name || null,
+      shortName: rawStar.shortName || rawStar.name || null,
+      constellationJa: rawStar.constellationJa || null,
+      isFirstMag: Boolean(rawStar.isFirstMag),
       ra: rawStar.ra ?? rawStar.RA_ICRS ?? null,
       dec: rawStar.dec ?? rawStar.DE_ICRS ?? null,
       // ① 観測量

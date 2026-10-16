@@ -39,11 +39,12 @@ window.HRChartRenderer = (function () {
       this.yTransitionProgress = 1.0; // 0 = apparent (m_G), 1 = absolute (M_G)
       this.animFrameId = null;
 
-      // 軸ドメイン初期値
-      this.defaultXDomain = [-0.65, 3.65];
-      this.defaultYDomainAbs = [-5.5, 16.8]; // 上が明るい (-5.5)、下が暗い (+16.8)
-      this.defaultYDomainApp = [1.5, 19.5];
+      // 軸ドメイン初期値（全21個の一等星：デネブ・リゲル M_G≈-7.0 や シリウス m_G=-1.44 が完全に収まる範囲）
+      this.defaultXDomain = [-0.68, 3.85];
+      this.defaultYDomainAbs = [-7.8, 16.8]; // 上が明るい (-7.8)、下が暗い (+16.8)
+      this.defaultYDomainApp = [-2.2, 19.5];
 
+      this.landmarkLabelBoxes = [];
       this.margin = { top: 54, right: 64, bottom: 52, left: 62 };
       this.currentTransform = d3.zoomIdentity;
 
@@ -63,7 +64,7 @@ window.HRChartRenderer = (function () {
       this.canvas.style.position = "absolute";
       this.canvas.style.top = "0";
       this.canvas.style.left = "0";
-      this.canvas.style. pointerEvents = "none";
+      this.canvas.style.pointerEvents = "none";
       this.container.appendChild(this.canvas);
       this.ctx = this.canvas.getContext("2d");
 
@@ -132,7 +133,7 @@ window.HRChartRenderer = (function () {
       this.tooltip = document.createElement("div");
       this.tooltip.className =
         "pointer-events-none absolute z-30 hidden bg-white border border-neutral-900 px-3 py-2 text-xs text-neutral-900 shadow-sm font-mono-num";
-      this.tooltip.style.minWidth = "210px";
+      this.tooltip.style.minWidth = "225px";
       this.container.appendChild(this.tooltip);
     }
 
@@ -180,10 +181,11 @@ window.HRChartRenderer = (function () {
 
       this.interactionRect.call(this.zoom);
 
-      // マウス移動による最近傍恒星ホバー検出
+      // マウス移動による最近傍恒星・一等星日本語ラベルのホバー検出
       this.interactionRect.on("mousemove", (event) => {
         const [mx, my] = d3.pointer(event, this.interactionRect.node());
-        const nearest = this.findNearestStar(mx, my, 14);
+        const nearest = this.findNearestStar(mx, my, 15);
+        this.interactionRect.style("cursor", nearest ? "pointer" : "crosshair");
         if (nearest !== this.hoveredStar) {
           this.hoveredStar = nearest;
           this.renderCanvas();
@@ -197,14 +199,15 @@ window.HRChartRenderer = (function () {
 
       this.interactionRect.on("mouseleave", () => {
         this.hoveredStar = null;
+        this.interactionRect.style("cursor", "crosshair");
         this.hideTooltip();
         this.renderCanvas();
       });
 
-      // クリックによる恒星選択（②物理量算出シミュレータ・③物理的解釈へ連動）
+      // クリックによる恒星・一等星ラベル選択（②物理量算出シミュレータ・③物理的解釈へ連動）
       this.interactionRect.on("click", (event) => {
         const [mx, my] = d3.pointer(event, this.interactionRect.node());
-        const nearest = this.findNearestStar(mx, my, 16);
+        const nearest = this.findNearestStar(mx, my, 18);
         if (nearest) {
           this.selectStar(nearest);
         }
@@ -359,17 +362,41 @@ window.HRChartRenderer = (function () {
       return this.yScale(yVal);
     }
 
-    findNearestStar(mx, my, maxDistPx = 14) {
+    findNearestStar(mx, my, maxDistPx = 15) {
+      // 1. 一等星・基準星の日本語ラベルボックス内のクリック／ホバーを最優先判定
+      if (this.options.showLandmarks && this.landmarkLabelBoxes.length > 0) {
+        for (let i = this.landmarkLabelBoxes.length - 1; i >= 0; i--) {
+          const b = this.landmarkLabelBoxes[i];
+          if (mx >= b.boxX && mx <= b.boxX + b.boxW && my >= b.boxY && my <= b.boxY + b.boxH) {
+            return b.star;
+          }
+        }
+      }
+
+      // 2. 一等星・基準星のマーカー本体への近접判定（優先度高）
+      if (this.options.showLandmarks && this.landmarks.length > 0) {
+        let bestLm = null;
+        let bestLmDist2 = (maxDistPx + 3) * (maxDistPx + 3);
+        for (let i = 0; i < this.landmarks.length; i++) {
+          const s = this.landmarks[i];
+          const sx = this.getStarX(s);
+          const sy = this.getStarY(s);
+          const dx = sx - mx;
+          const dy = sy - my;
+          const d2 = dx * dx + dy * dy;
+          if (d2 <= bestLmDist2) {
+            bestLmDist2 = d2;
+            bestLm = s;
+          }
+        }
+        if (bestLm) return bestLm;
+      }
+
+      // 3. 一般のGaia観測データ点の近傍判定
       let best = null;
       let bestDist2 = maxDistPx * maxDistPx;
-
-      // 著名恒星ランドマークも含めて検索
-      const pool = this.options.showLandmarks
-        ? this.stars.concat(this.landmarks)
-        : this.stars;
-
-      for (let i = 0; i < pool.length; i++) {
-        const s = pool[i];
+      for (let i = 0; i < this.stars.length; i++) {
+        const s = this.stars[i];
         const sx = this.getStarX(s);
         const sy = this.getStarY(s);
         const dx = sx - mx;
@@ -384,14 +411,18 @@ window.HRChartRenderer = (function () {
     }
 
     showTooltip(star, mx, my) {
+      const badgeLabel = star.isFirstMag
+        ? `<span class="text-[10px] px-1 bg-neutral-900 text-white font-bold">一等星 / ${star.spectralType}</span>`
+        : `<span class="text-[10px] px-1 border border-neutral-800">${star.spectralType}</span>`;
+
       const title = star.name
-        ? `<div class="font-bold border-b border-neutral-300 pb-1 mb-1 flex items-center justify-between">
+        ? `<div class="font-bold border-b border-neutral-300 pb-1 mb-1 flex items-center justify-between gap-2">
              <span>${star.name}</span>
-             <span class="text-[10px] px-1 border border-neutral-800">${star.spectralType}</span>
+             ${badgeLabel}
            </div>`
-        : `<div class="font-bold border-b border-neutral-300 pb-1 mb-1 flex items-center justify-between">
+        : `<div class="font-bold border-b border-neutral-300 pb-1 mb-1 flex items-center justify-between gap-2">
              <span>Gaia DR3 ${String(star.id).slice(0, 12)}</span>
-             <span class="text-[10px] px-1 border border-neutral-800">${star.spectralType}</span>
+             ${badgeLabel}
            </div>`;
 
       this.tooltip.innerHTML = `
@@ -578,7 +609,7 @@ window.HRChartRenderer = (function () {
         .attr("stroke", "#171717");
 
       if (this.yTransitionProgress > 0.5) {
-        const logLums = [-4, -3, -2, -1, 0, 1, 2, 3, 4];
+        const logLums = [-4, -3, -2, -1, 0, 1, 2, 3, 4, 5];
         const yDom = this.yScale.domain();
         logLums.forEach((logL) => {
           // M_G ≈ M_G,sun - 2.5 * log10(L / L_sun)
@@ -613,10 +644,10 @@ window.HRChartRenderer = (function () {
       this.gRegions.selectAll("*").remove();
       if (this.options.showRegions && this.yTransitionProgress > 0.7) {
         const regionAnnotations = [
-          { label: "超巨星領域 (Supergiants)", bpRp: 0.7, mG: -3.8 },
-          { label: "赤色巨星枝 (Red Giants)", bpRp: 1.45, mG: 0.4 },
-          { label: "主系列星 (Main Sequence)", bpRp: 0.95, mG: 6.2 },
-          { label: "白色矮星領域 (White Dwarfs)", bpRp: 0.15, mG: 12.6 }
+          { label: "超巨星領域 (Supergiants)", bpRp: 0.85, mG: -5.8 },
+          { label: "赤色巨星枝 (Red Giants)", bpRp: 1.55, mG: -0.6 },
+          { label: "主系列星 (Main Sequence)", bpRp: 1.05, mG: 6.4 },
+          { label: "白色矮星領域 (White Dwarfs)", bpRp: 0.20, mG: 12.8 }
         ];
 
         regionAnnotations.forEach((ra) => {
@@ -654,7 +685,7 @@ window.HRChartRenderer = (function () {
     }
 
     /**
-     * HTML5 Canvasレイヤー（等半径線・恒星プロット・等年齢線カーブ・ランドマーク・選択マーカー）の描画
+     * HTML5 Canvasレイヤー（等半径線・恒星プロット・等年齢線カーブ・一等星日本語ラベル・選択マーカー）の描画
      */
     renderCanvas() {
       const ctx = this.ctx;
@@ -690,7 +721,8 @@ window.HRChartRenderer = (function () {
         this.drawIsochroneCurve(ctx, this.options.logAgeYr, true);
       }
 
-      // 5. 著名恒星・太陽ランドマーク (白黒モノトーンの基準マーカー)
+      // 5. 全21個の一等星・太陽ランドマーク (日本語ラベル重なり回避＋引き出し線＋クリック対応)
+      this.landmarkLabelBoxes = [];
       if (this.options.showLandmarks) {
         this.drawLandmarks(ctx);
       }
@@ -759,6 +791,9 @@ window.HRChartRenderer = (function () {
 
       for (let i = 0; i < this.stars.length; i++) {
         const s = this.stars[i];
+        // もしデータセット自体が一等星カタログの場合は drawLandmarks で日本語ラベル付き描画するので重複スキップ可
+        if (s.isLandmark && this.options.showLandmarks) continue;
+
         const x = this.getStarX(s);
         const y = this.getStarY(s);
 
@@ -767,7 +802,6 @@ window.HRChartRenderer = (function () {
         }
 
         const isBrushed = !hasBrush || brushedSet.has(s);
-        // 絶対等級が明るい星ほどわずかに半径を大きく描画 (2.8px 〜 5.8px)
         const baseRadius = Math.max(2.6, Math.min(5.8, 4.4 - (s.M_G - 5.0) * 0.16));
 
         ctx.beginPath();
@@ -842,7 +876,6 @@ window.HRChartRenderer = (function () {
           ctx.strokeStyle = "#0a0a0a";
           ctx.stroke();
 
-          // ラベルボックス
           const labelText = `MSTO (離脱点): 年齢 ${iso.ageTextJa}`;
           ctx.font = "bold 10px 'JetBrains Mono', monospace";
           const tw = ctx.measureText(labelText).width;
@@ -859,7 +892,6 @@ window.HRChartRenderer = (function () {
           ctx.fillText(labelText, bx, by);
         }
       } else {
-        // 比較用サブ等年齢線の年齢ラベル
         const to = iso.turnoff;
         const toCi =
           this.options.xAxisMode === "bv" ? Astrophysics.bpRpToBV(to.bp_rp) : to.bp_rp;
@@ -874,29 +906,120 @@ window.HRChartRenderer = (function () {
       ctx.restore();
     }
 
+    /**
+     * 全21個の一等星＋太陽・代表星のマーカーと日本語ラベル（重なり自動回避＆クリック選択対応）を描画
+     */
     drawLandmarks(ctx) {
       ctx.save();
-      this.landmarks.forEach((lm) => {
+      ctx.font = "bold 10.5px 'Inter', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif";
+
+      const visibleItems = [];
+      this.landmarks.forEach((lm, idx) => {
         const x = this.getStarX(lm);
         const y = this.getStarY(lm);
-        if (x < 0 || x > this.innerWidth || y < 0 || y > this.innerHeight) return;
+        if (x < -5 || x > this.innerWidth + 5 || y < -5 || y > this.innerHeight + 5) return;
 
-        // ダイヤ型＋物理温度カラーのマーカー
+        const isActive =
+          (this.selectedStar && this.selectedStar.id === lm.id) ||
+          (this.hoveredStar && this.hoveredStar.id === lm.id);
+
+        // ラベル文字列: 通常時は「★シリウス」等の短縮日本語名、選択/ホバー時は星座名も含む完全名
+        const prefix = lm.isFirstMag ? "★" : "";
+        const text = isActive ? `${prefix}${lm.name}` : `${prefix}${lm.shortName || lm.name}`;
+        const textW = ctx.measureText(text).width;
+        const boxW = textW + 8;
+        const boxH = 16;
+
+        // 初期オフセット配置（右側基本、右端に近い場合や密集領域では左右振り分け）
+        const placeLeft = x > this.innerWidth - boxW - 22 || (lm.bp_rp < -0.25 && idx % 2 === 1);
+        const initBoxX = placeLeft
+          ? Math.max(4, x - boxW - 9)
+          : Math.min(this.innerWidth - boxW - 4, x + 9);
+        const initBoxY = Math.max(4, Math.min(this.innerHeight - boxH - 4, y - boxH / 2));
+
+        visibleItems.push({
+          star: lm,
+          x,
+          y,
+          text,
+          boxX: initBoxX,
+          boxY: initBoxY,
+          boxW,
+          boxH,
+          isActive
+        });
+      });
+
+      // ラベル矩形の重なり自動解消（反復緩和法）
+      for (let iter = 0; iter < 14; iter++) {
+        for (let i = 0; i < visibleItems.length; i++) {
+          for (let j = i + 1; j < visibleItems.length; j++) {
+            const a = visibleItems[i];
+            const b = visibleItems[j];
+
+            const overlapX = Math.min(a.boxX + a.boxW, b.boxX + b.boxW) - Math.max(a.boxX, b.boxX);
+            const overlapY = Math.min(a.boxY + a.boxH, b.boxY + b.boxH) - Math.max(a.boxY, b.boxY);
+
+            if (overlapX > -2 && overlapY > -2) {
+              const pushY = (overlapY + 3) * 0.52;
+              if (a.boxY <= b.boxY) {
+                a.boxY = Math.max(3, a.boxY - pushY);
+                b.boxY = Math.min(this.innerHeight - b.boxH - 3, b.boxY + pushY);
+              } else {
+                a.boxY = Math.min(this.innerHeight - a.boxH - 3, a.boxY + pushY);
+                b.boxY = Math.max(3, b.boxY - pushY);
+              }
+            }
+          }
+        }
+      }
+
+      // 1. 引き出し線（リーダーライン）を描画
+      visibleItems.forEach((it) => {
+        const targetX =
+          it.x < it.boxX ? it.boxX : it.x > it.boxX + it.boxW ? it.boxX + it.boxW : it.boxX + it.boxW / 2;
+        const targetY = it.boxY + it.boxH / 2;
+        const dist = Math.hypot(targetX - it.x, targetY - it.y);
+        if (dist > 6) {
+          ctx.beginPath();
+          ctx.moveTo(it.x, it.y);
+          ctx.lineTo(targetX, targetY);
+          ctx.strokeStyle = it.isActive ? "#0a0a0a" : "#737373";
+          ctx.lineWidth = it.isActive ? 1.5 : 0.9;
+          ctx.stroke();
+        }
+      });
+
+      // 2. 恒星マーカー（ダイヤ型＋物理的色温度）を描画
+      visibleItems.forEach((it) => {
+        const lm = it.star;
+        const sz = it.isActive ? 6.0 : lm.isFirstMag ? 4.8 : 4.2;
         ctx.save();
-        ctx.translate(x, y);
+        ctx.translate(it.x, it.y);
         ctx.rotate(Math.PI / 4);
         ctx.fillStyle = lm.colorHex;
         ctx.strokeStyle = "#0a0a0a";
-        ctx.lineWidth = 1.4;
-        ctx.fillRect(-4.5, -4.5, 9, 9);
-        ctx.strokeRect(-4.5, -4.5, 9, 9);
+        ctx.lineWidth = it.isActive ? 2.0 : 1.3;
+        ctx.fillRect(-sz, -sz, sz * 2, sz * 2);
+        ctx.strokeRect(-sz, -sz, sz * 2, sz * 2);
         ctx.restore();
-
-        // モノトーンラベル
-        ctx.font = "bold 10px 'Inter', sans-serif";
-        ctx.fillStyle = "#0a0a0a";
-        ctx.fillText(lm.name, x + 8, y + 3);
       });
+
+      // 3. クリック可能な日本語ラベルピルボックスを描画（選択中のものを最前面へ）
+      const sortedForDraw = visibleItems.slice().sort((a, b) => (a.isActive ? 1 : 0) - (b.isActive ? 1 : 0));
+      sortedForDraw.forEach((it) => {
+        ctx.fillStyle = it.isActive ? "#0a0a0a" : "rgba(255, 255, 255, 0.92)";
+        ctx.fillRect(it.boxX, it.boxY, it.boxW, it.boxH);
+
+        ctx.strokeStyle = it.isActive ? "#0a0a0a" : it.star.isFirstMag ? "#262626" : "#737373";
+        ctx.lineWidth = it.isActive ? 1.5 : 0.9;
+        ctx.strokeRect(it.boxX, it.boxY, it.boxW, it.boxH);
+
+        ctx.fillStyle = it.isActive ? "#ffffff" : "#0a0a0a";
+        ctx.fillText(it.text, it.boxX + 4, it.boxY + 11.5);
+      });
+
+      this.landmarkLabelBoxes = visibleItems;
       ctx.restore();
     }
 

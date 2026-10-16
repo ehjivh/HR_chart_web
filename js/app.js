@@ -40,13 +40,14 @@
     initStep2SimulatorAndQuiz();
     initStep3Controls();
     initToolbarAndModal();
+    initFirstMagSelector();
 
     // 5. 初期表示の反映
     populateRawTable(currentStars);
     updateRegionStats(currentStars, false);
     updateIsochroneReadout(8.80);
 
-    // 初期選択として太陽または最初の恒星をセット
+    // 初期選択として一等星シリウスまたは太陽をセット
     const initialStar = landmarks[0] || currentStars[0];
     if (initialStar) {
       hrChart.selectStar(initialStar, true);
@@ -56,6 +57,86 @@
     // 6. 初回起動時にバックグラウンドでリアルタイムTAPクエリも試行しステータス表示を更新
     triggerLiveTapFetch("composite", false);
   });
+
+  /**
+   * 一等星（全21星）＋太陽・基準星のクイック選択バー＆ドロップダウン初期化
+   */
+  function initFirstMagSelector() {
+    const selectEl = document.getElementById("select-first-mag");
+    const pillContainer = document.getElementById("first-mag-pill-container");
+    if (!selectEl || !pillContainer) return;
+
+    // ドロップダウン構築
+    const firstMagList = landmarks.filter((l) => l.isFirstMag);
+    const refList = landmarks.filter((l) => !l.isFirstMag);
+
+    const optGroup1 = document.createElement("optgroup");
+    optGroup1.label = "★ 一等星（全21恒星・日本語名）";
+    firstMagList.forEach((lm) => {
+      const opt = document.createElement("option");
+      opt.value = lm.id;
+      opt.textContent = `★ ${lm.name} [m=${lm.m_G.toFixed(2)}, M=${lm.M_G.toFixed(2)}, ${lm.regionNameJa}]`;
+      optGroup1.appendChild(opt);
+    });
+    selectEl.appendChild(optGroup1);
+
+    const optGroup2 = document.createElement("optgroup");
+    optGroup2.label = "基準恒星（太陽・代表白色矮星・赤色矮星）";
+    refList.forEach((lm) => {
+      const opt = document.createElement("option");
+      opt.value = lm.id;
+      opt.textContent = `・ ${lm.name} [m=${lm.m_G.toFixed(2)}, M=${lm.M_G.toFixed(2)}, ${lm.regionNameJa}]`;
+      optGroup2.appendChild(opt);
+    });
+    selectEl.appendChild(optGroup2);
+
+    selectEl.addEventListener("change", () => {
+      const targetId = selectEl.value;
+      if (!targetId) return;
+      const found = landmarks.find((l) => l.id === targetId);
+      if (found) {
+        ensureLandmarksVisible();
+        hrChart.selectStar(found, true);
+      }
+    });
+
+    // ワンクリック日本語ピルボタン群の構築（全21個の一等星＋太陽）
+    pillContainer.innerHTML = landmarks
+      .map((lm) => {
+        const label = lm.isFirstMag ? `★${lm.shortName}` : lm.shortName;
+        return `
+        <button
+          type="button"
+          data-landmark-id="${lm.id}"
+          title="${lm.name} (${lm.regionNameJa} / 有効温度 ${Math.round(lm.teff).toLocaleString()}K)"
+          class="first-mag-pill shrink-0 px-2 py-0.5 text-[11px] font-medium border border-neutral-800 bg-white text-neutral-900 hover:bg-neutral-200 transition flex items-center gap-1"
+        >
+          <span class="inline-block w-2 h-2 border border-neutral-900 shrink-0" style="background-color: ${lm.colorHex};"></span>
+          <span>${label}</span>
+        </button>
+      `;
+      })
+      .join("");
+
+    pillContainer.querySelectorAll(".first-mag-pill").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-landmark-id");
+        const found = landmarks.find((l) => l.id === id);
+        if (found) {
+          ensureLandmarksVisible();
+          hrChart.selectStar(found, true);
+        }
+      });
+    });
+  }
+
+  function ensureLandmarksVisible() {
+    const chk = document.getElementById("chk-overlay-landmarks");
+    if (chk && !chk.checked) {
+      chk.checked = true;
+      hrChart.setOption("showLandmarks", true);
+    }
+  }
 
   function renderMath() {
     if (window.renderMathInElement) {
@@ -200,6 +281,8 @@
       const badgeText =
         result.source === "LIVE_TAP_API"
           ? `LIVE取得 (${result.elapsedMs}ms)`
+          : result.source === "FIRST_MAG_CATALOG"
+          ? `一等星カタログ`
           : `内蔵DR3 (${result.stars.length}星)`;
       setTapStatus(badgeText, result.message);
     } finally {
@@ -221,40 +304,53 @@
     populateRawTable(currentStars);
     updateRegionStats(currentStars, false);
     if (currentStars.length > 0) {
-      handleStarSelection(currentStars[0]);
+      handleStarSelection(hrChart.selectedStar || landmarks[0] || currentStars[0]);
       pickNewQuizStar();
     }
   }
 
   /**
-   * 観測生データテーブルの描画とクリック連動
+   * 観測生データテーブルの描画とクリック連動（一等星全21星も先頭に日本語名で一覧表示）
    */
+  let currentTableRowsData = [];
+
   function populateRawTable(stars) {
     const tbody = document.getElementById("tbody-raw-stars");
     const countLabel = document.getElementById("table-count-label");
-    countLabel.textContent = `${stars.length} 天体`;
 
-    const displaySlice = stars.slice(0, 120);
-    tbody.innerHTML = displaySlice
-      .map(
-        (s, idx) => `
-      <tr data-star-idx="${idx}" class="cursor-pointer hover:bg-neutral-200 transition">
-        <td class="py-1 px-2 truncate max-w-[130px]" title="Gaia DR3 ${s.id}">
-          ${s.name ? s.name : s.id.slice(0, 13)}
+    // すでに stars がランドマーク自身（first_mag_only）の場合はそのまま、それ以外は一等星・基準星を先頭に結合していつでも選択可能にする
+    const hasLandmarksInside = stars.length > 0 && stars[0].isLandmark;
+    const combined = hasLandmarksInside ? stars : landmarks.concat(stars.slice(0, 100));
+    currentTableRowsData = combined;
+
+    countLabel.textContent = hasLandmarksInside
+      ? `一等星・基準星 ${stars.length} 天体`
+      : `一等星21+基準4 / 観測 ${stars.length} 天体`;
+
+    tbody.innerHTML = combined
+      .map((s, idx) => {
+        const displayName = s.name
+          ? `${s.isFirstMag ? "★ " : ""}${s.name}`
+          : s.id.slice(0, 13);
+        return `
+      <tr data-star-idx="${idx}" data-star-id="${s.id}" class="cursor-pointer hover:bg-neutral-200 transition">
+        <td class="py-1 px-2 truncate max-w-[145px] ${s.isFirstMag ? "font-bold" : ""}" title="${s.name || "Gaia DR3 " + s.id}">
+          ${displayName}
         </td>
         <td class="py-1 px-1.5 text-right">${s.m_G.toFixed(2)}</td>
         <td class="py-1 px-1.5 text-right">${s.parallax.toFixed(2)}</td>
         <td class="py-1 px-2 text-right">${s.bp_rp.toFixed(2)}</td>
       </tr>
-    `
-      )
+    `;
+      })
       .join("");
 
     tbody.querySelectorAll("tr").forEach((tr) => {
       tr.addEventListener("click", () => {
         const idx = Number(tr.getAttribute("data-star-idx"));
-        const star = displaySlice[idx];
+        const star = currentTableRowsData[idx];
         if (star) {
+          if (star.isLandmark) ensureLandmarksVisible();
           hrChart.selectStar(star, true);
         }
       });
@@ -478,11 +574,29 @@
     // 4. テーブルのハイライト連動
     const rows = document.querySelectorAll("#tbody-raw-stars tr");
     rows.forEach((r) => {
-      const idx = Number(r.getAttribute("data-star-idx"));
-      if (currentStars[idx] && currentStars[idx].id === star.id) {
+      const rowId = r.getAttribute("data-star-id");
+      if (rowId === String(star.id)) {
         r.classList.add("star-row-selected");
       } else {
         r.classList.remove("star-row-selected");
+      }
+    });
+
+    // 5. 一等星クイック選択ピルボタン＆ドロップダウンのハイライト同期
+    const selectFirstMag = document.getElementById("select-first-mag");
+    if (selectFirstMag) {
+      const isInLandmark = landmarks.some((l) => l.id === star.id);
+      selectFirstMag.value = isInLandmark ? star.id : "";
+    }
+
+    document.querySelectorAll(".first-mag-pill").forEach((btn) => {
+      const lid = btn.getAttribute("data-landmark-id");
+      if (lid === star.id) {
+        btn.classList.remove("bg-white", "text-neutral-900", "hover:bg-neutral-200");
+        btn.classList.add("bg-neutral-950", "text-white", "font-bold");
+      } else {
+        btn.classList.add("bg-white", "text-neutral-900", "hover:bg-neutral-200");
+        btn.classList.remove("bg-neutral-950", "text-white", "font-bold");
       }
     });
   }

@@ -142,6 +142,7 @@
               </label>
               <select id="select-tap-preset" class="w-full text-xs border border-neutral-800 bg-white px-2.5 py-1.5 font-medium focus:outline-none">
                 <option value="composite">1. 太陽近傍＋巨星＋白色矮星 総合サンプル（HR図全領域・推奨）</option>
+                <option value="first_mag_only">★ 一等星（全21恒星）＋太陽・代表星 専用比較セット</option>
                 <option value="pleiades">2. プレアデス星団 M45 / すばる（若い散開星団・約1億年）</option>
                 <option value="hyades">3. ヒアデス星団 Hyades（中年期の散開星団・約6.5億年）</option>
                 <option value="m67">4. 散開星団 M67 / NGC 2682（古い散開星団・約40億年・明確なターンオフ）</option>
@@ -520,7 +521,7 @@
           </label>
           <label class="flex items-center gap-1 cursor-pointer">
             <input id="chk-overlay-landmarks" type="checkbox" checked class="accent-neutral-950" />
-            <span>太陽・著名星</span>
+            <span class="font-bold">一等星(全21星)・太陽ラベル</span>
           </label>
         </div>
 
@@ -538,6 +539,28 @@
             視点リセット
           </button>
         </div>
+      </div>
+
+      <!-- 一等星（全21恒星）＆ 太陽 ダイレクト選択バー -->
+      <div id="first-mag-selector-bar" class="border-b border-neutral-900 bg-white px-3 py-1.5 flex flex-col gap-1.5 shrink-0">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] font-mono-num font-bold px-1.5 py-0.5 bg-neutral-950 text-white">
+              ★ 一等星（全21星）クイック選択
+            </span>
+            <span class="text-[11px] text-neutral-600 hidden xl:inline">
+              ボタンまたはHR図上の日本語ラベルをクリックすると物理量算出・解釈へ即座に連動します
+            </span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <label for="select-first-mag" class="text-[11px] font-semibold text-neutral-700">一覧から選択:</label>
+            <select id="select-first-mag" class="text-[11px] font-mono-num border border-neutral-800 bg-neutral-50 px-2 py-0.5 focus:outline-none">
+              <option value="">-- 一等星（全21星）・基準星を選択 --</option>
+            </select>
+          </div>
+        </div>
+        <!-- 全21個の一等星＋太陽のワンクリック日本語ピルボタン群 -->
+        <div id="first-mag-pill-container" class="flex items-center gap-1 overflow-x-auto pb-0.5"></div>
       </div>
 
       <!-- HR図描画コンテナ (Canvas + D3 SVG) -->
