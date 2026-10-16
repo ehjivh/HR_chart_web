@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>教育・研究用 WebベースHR図学習システム | Gaia DR3 HR-Diagram Workbench</title>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- KaTeX (数式レンダリング) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <!-- D3.js v7 -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <!-- カスタムスタイル（白黒モノトーン学術テーマ） -->
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="h-screen flex flex-col overflow-hidden bg-white text-neutral-950 select-none">
+
+  <!-- ==================== トップヘッダー（学術モノトーン） ==================== -->
+  <header class="border-b border-neutral-900 bg-white px-4 py-2.5 flex items-center justify-between shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="w-7 h-7 border border-neutral-900 bg-neutral-950 text-white flex items-center justify-center font-mono-num font-bold text-xs tracking-tighter">
+        HR
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm md:text-base font-bold tracking-tight text-neutral-950">
+            教育・研究用 WebベースHR図学習システム
+          </h1>
+          <span class="hidden sm:inline-block text-[10px] font-mono-num uppercase px-1.5 py-0.5 border border-neutral-800 text-neutral-800">
+            Gaia DR3 / TAP Interactive
+          </span>
+        </div>
+        <p class="text-[11px] text-neutral-600 hidden md:block">
+          科学的探究プロセス：「①何を観測し → ②何を算出し → ③HR図から何が分かるのか」の体系的追体験システム
+        </p>
+      </div>
+    </div>
+
+    <!-- 3段階プロセス・クイックインジケータ & 補助ボタン -->
+    <div class="flex items-center gap-2">
+      <button id="btn-open-guide" type="button" class="px-2.5 py-1.5 text-xs font-medium border border-neutral-900 bg-white text-neutral-900 hover:bg-neutral-100 transition flex items-center gap-1.5">
+        <span class="font-mono-num font-bold">[?]</span>
+        <span>天文学習フレームワーク解説</span>
+      </button>
+      <button id="btn-export-csv" type="button" class="px-2.5 py-1.5 text-xs font-medium border border-neutral-400 bg-white text-neutral-800 hover:border-neutral-900 transition hidden sm:inline-flex items-center gap-1">
+        <span>CSV出力</span>
+      </button>
+      <label class="px-2.5 py-1.5 text-xs font-medium border border-neutral-400 bg-white text-neutral-800 hover:border-neutral-900 transition cursor-pointer hidden sm:inline-flex items-center gap-1">
+        <span>CSV読込</span>
+        <input id="input-import-csv" type="file" accept=".csv,.tsv,.txt" class="hidden" />
+      </label>
+    </div>
+  </header>
+
+  <!-- ==================== メインワークスペース（1画面ダッシュボード） ==================== -->
+  <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+
+    <!-- 左ペイン: 3段階の天文学習フレームワーク制御＆解析モジュール -->
+    <aside class="w-full lg:w-[450px] xl:w-[480px] border-b lg:border-b-0 lg:border-r border-neutral-900 flex flex-col bg-neutral-50 shrink-0 overflow-hidden">
+
+      <!-- 3段階プロセスタブナビゲーション -->
+      <nav class="grid grid-cols-3 border-b border-neutral-900 bg-white shrink-0" aria-label="学習プロセスステップ">
+        <button type="button" data-step="1" class="step-tab active py-2.5 px-2 border-r border-neutral-300 text-left flex flex-col justify-between">
+          <div class="flex items-center justify-between w-full mb-0.5">
+            <span class="step-badge text-[10px] font-mono-num font-bold px-1 border border-current">STEP ①</span>
+            <span class="text-[10px] font-mono-num opacity-75">Observe</span>
+          </div>
+          <div class="text-xs font-bold leading-tight">何を観測するのか</div>
+          <div class="text-[10px] opacity-80 truncate mt-0.5">視等級・視差・色指数</div>
+        </button>
+
+        <button type="button" data-step="2" class="step-tab py-2.5 px-2 border-r border-neutral-300 text-left flex flex-col justify-between">
+          <div class="flex items-center justify-between w-full mb-0.5">
+            <span class="step-badge text-[10px] font-mono-num font-bold px-1 border border-current">STEP ②</span>
+            <span class="text-[10px] font-mono-num opacity-75">Compute</span>
+          </div>
+          <div class="text-xs font-bold leading-tight">何を算出するのか</div>
+          <div class="text-[10px] opacity-80 truncate mt-0.5">絶対等級 $M$・有効温度 $T_{\text{eff}}$</div>
+        </button>
+
+        <button type="button" data-step="3" class="step-tab py-2.5 px-2 text-left flex flex-col justify-between">
+          <div class="flex items-center justify-between w-full mb-0.5">
+            <span class="step-badge text-[10px] font-mono-num font-bold px-1 border border-current">STEP ③</span>
+            <span class="text-[10px] font-mono-num opacity-75">Interpret</span>
+          </div>
+          <div class="text-xs font-bold leading-tight">どうなるのか</div>
+          <div class="text-[10px] opacity-80 truncate mt-0.5">分類・質量寿命・等年齢線</div>
+        </button>
+      </nav>
+
+      <!-- ステップコンテンツ領域（スクロール可能） -->
+      <div class="flex-1 overflow-y-auto p-3.5 space-y-3.5 select-text">
+
+        <!-- ==================== STEP 1: 何を観測するのか（観測データの取得） ==================== -->
+        <section id="panel-step-1" class="space-y-3.5">
+          <!-- 概念解説ボックス -->
+          <div class="bg-white border border-neutral-900 p-3">
+            <div class="flex items-center justify-between border-b border-neutral-200 pb-1.5 mb-2">
+              <h2 class="text-xs font-bold uppercase tracking-wider">① 宇宙望遠鏡・地上観測で取得する3つの基礎データ</h2>
+              <span class="text-[10px] font-mono-num text-neutral-500">Gaia DR3</span>
+            </div>
+            <ul class="space-y-1.5 text-xs text-neutral-800 leading-relaxed">
+              <li class="flex gap-2">
+                <span class="font-mono-num font-bold text-neutral-950 shrink-0">1. 視等級 ($m$):</span>
+                <span>地球から観測した星の見かけの明るさ（数値が小さいほど明るい）。距離の影響を受ける。</span>
+              </li>
+              <li class="flex gap-2">
+                <span class="font-mono-num font-bold text-neutral-950 shrink-0">2. 年周視差 ($\varpi$):</span>
+                <span>地球の公転軌道を底辺とした視差角（単位: $\text{mas} = \frac{1}{1000}\text{秒角}$）。星までの幾何学的距離 $d$ を決める。</span>
+              </li>
+              <li class="flex gap-2">
+                <span class="font-mono-num font-bold text-neutral-950 shrink-0">3. 色指数 ($G_{BP}-G_{RP}$):</span>
+                <span>青色側フィルター ($G_{BP}$) と赤色側フィルター ($G_{RP}$) の等級差。星の表面温度を反映する。</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Gaia Archive (TAP API) リアルタイム取得パネル -->
+          <div class="bg-white border border-neutral-900 p-3 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold">Gaia Archive (TAP API) リアルタイムデータ取得</h3>
+              <span id="tap-status-badge" class="text-[10px] font-mono-num px-1.5 py-0.5 border border-neutral-800 bg-neutral-100">
+                準備完了
+              </span>
+            </div>
+
+            <!-- 観測対象プリセット選択 -->
+            <div>
+              <label for="select-tap-preset" class="block text-[11px] font-semibold text-neutral-700 mb-1">
+                観測ターゲット / 星団プリセット（選択でADQL生成＆リアルタイム取得）:
+              </label>
+              <select id="select-tap-preset" class="w-full text-xs border border-neutral-800 bg-white px-2.5 py-1.5 font-medium focus:outline-none">
+                <option value="composite">1. 太陽近傍＋巨星＋白色矮星 総合サンプル（HR図全領域・推奨）</option>
+                <option value="pleiades">2. プレアデス星団 M45 / すばる（若い散開星団・約1億年）</option>
+                <option value="hyades">3. ヒアデス星団 Hyades（中年期の散開星団・約6.5億年）</option>
+                <option value="m67">4. 散開星団 M67 / NGC 2682（古い散開星団・約40億年・明確なターンオフ）</option>
+                <option value="nearby_25pc">5. 太陽近傍 22pc 完全サンプル（ϖ &gt; 45 mas: 主系列＆白色矮星）</option>
+                <option value="bright_giants">6. 近傍の明るい巨星・高温星サンプル（G &lt; 6.8 mag, ϖ &gt; 15 mas）</option>
+              </select>
+            </div>
+
+            <!-- プリセット解説 -->
+            <div id="preset-description" class="text-[11px] text-neutral-600 bg-neutral-100 border border-neutral-300 p-2 leading-relaxed">
+              太陽近傍の主系列星・白色矮星・赤色巨星を組み合わせ、HR図のすべての進化段階を網羅したデータセットです。
+            </div>
+
+            <!-- ADQL クエリエディタ折りたたみ/展開 -->
+            <details class="border border-neutral-300 bg-neutral-50 p-2">
+              <summary class="text-[11px] font-mono-num font-semibold cursor-pointer flex items-center justify-between">
+                <span>ADQL クエリ文を確認・編集 (IVOA TAP 準拠)</span>
+                <span class="text-[10px] text-neutral-500">クリックで開閉</span>
+              </summary>
+              <div class="mt-2 space-y-2">
+                <div class="flex items-center justify-between text-[10px] text-neutral-600">
+                  <span>エンドポイント:</span>
+                  <select id="select-tap-endpoint" class="border border-neutral-400 bg-white px-1.5 py-0.5 font-mono-num text-[10px]">
+                    <option value="vizier">CDS VizieR Gaia DR3 TAP (CORS対応・高速)</option>
+                    <option value="esa">ESA Gaia Archive TAP (自動フォールバック付)</option>
+                  </select>
+                </div>
+                <textarea id="textarea-adql" rows="4" class="w-full font-mono-num text-[11px] p-2 border border-neutral-800 bg-white text-neutral-900 focus:outline-none leading-snug"></textarea>
+                <p class="text-[10px] text-neutral-500">
+                  ※ 標準的な ESA 構文 (<code>gaiadr3.gaia_source</code>) と VizieR 構文 (<code>"I/355/gaiadr3"</code>) のどちらで記述しても自動変換・実行されます。
+                </p>
+              </div>
+            </details>
+
+            <!-- 実行ボタン＆取得ステータス -->
+            <div class="flex items-center gap-2">
+              <button id="btn-run-tap" type="button" class="flex-1 py-2 px-3 bg-neutral-950 text-white text-xs font-bold border border-neutral-950 hover:bg-neutral-800 transition flex items-center justify-center gap-2">
+                <span>TAP API クエリ実行（リアルタイム取得）</span>
+              </button>
+            </div>
+            <div id="tap-log-message" class="text-[11px] font-mono-num text-neutral-600"></div>
+          </div>
+
+          <!-- 視等級 m と 絶対等級 M の視覚的比較実験ボックス -->
+          <div class="bg-white border border-neutral-900 p-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold">【視覚実験】なぜ視等級 $m$ のままではいけないのか？</h3>
+              <span class="text-[10px] font-mono-num border border-neutral-400 px-1">距離補正の効果</span>
+            </div>
+            <p class="text-[11px] text-neutral-700 leading-relaxed">
+              観測されたままの<strong>視等級 $m_G$</strong> でプロットすると、星までの距離がバラバラなため本来の明るさが分からず図が散らばります（星団を除く）。下のボタンで縦軸を切り替えて比較してください。
+            </p>
+            <div class="grid grid-cols-2 gap-2 pt-1">
+              <button id="btn-mode-apparent" type="button" class="py-1.5 px-2 text-xs font-semibold border border-neutral-900 bg-white text-neutral-900 hover:bg-neutral-100 transition">
+                ① 視等級 $m_G$ で表示<br /><span class="text-[10px] font-normal opacity-80">（距離補正前・見かけ）</span>
+              </button>
+              <button id="btn-mode-absolute" type="button" class="py-1.5 px-2 text-xs font-semibold border border-neutral-900 bg-neutral-950 text-white transition">
+                ② 絶対等級 $M_G$ で表示<br /><span class="text-[10px] font-normal opacity-80">（10pc基準・距離補正後）</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 取得された観測生データ一覧テーブル -->
+          <div class="bg-white border border-neutral-900 p-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold">観測生データテーブル（クリックで星を選択）</h3>
+              <span id="table-count-label" class="text-[10px] font-mono-num text-neutral-600">0 件</span>
+            </div>
+            <div class="max-h-56 overflow-y-auto border border-neutral-300">
+              <table class="w-full text-left border-collapse font-mono-num text-[11px]">
+                <thead class="bg-neutral-100 border-b border-neutral-800 sticky top-0">
+                  <tr>
+                    <th class="py-1.5 px-2 font-bold">天体ID / 名称</th>
+                    <th class="py-1.5 px-1.5 font-bold text-right">視等級 $m_G$</th>
+                    <th class="py-1.5 px-1.5 font-bold text-right">視差 $\varpi$ [mas]</th>
+                    <th class="py-1.5 px-2 font-bold text-right">色 $G_{BP}-G_{RP}$</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-raw-stars" class="divide-y divide-neutral-200"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== STEP 2: 何を算出するのか（物理量への変換） ==================== -->
+        <section id="panel-step-2" class="space-y-3.5 hidden">
+          <!-- 変換公式と物理的意味 -->
+          <div class="bg-white border border-neutral-900 p-3 space-y-2.5">
+            <div class="border-b border-neutral-200 pb-1.5">
+              <h2 class="text-xs font-bold uppercase tracking-wider">② 観測データから恒星本来の物理量への変換モデル</h2>
+            </div>
+
+            <div class="bg-neutral-50 border border-neutral-300 p-2.5 space-y-1.5">
+              <div class="text-[11px] font-bold text-neutral-900">
+                A. 距離 $d$ と 絶対等級 $M$ の算出（10パーセク基準への規格化）
+              </div>
+              <div class="text-xs overflow-x-auto py-1">
+                $$d\text{ [pc]} = \frac{1000}{\varpi\text{ [mas]}}, \qquad M = m + 5 + 5 \log_{10}\!\left(\frac{\varpi}{1000}\right)$$
+              </div>
+              <p class="text-[11px] text-neutral-600 leading-relaxed">
+                すべての星を共通の基準距離 $10\text{ pc}$（約 $32.6\text{ 光年}$、年周視差 $\varpi = 100\text{ mas}$）に置いたときの等級 $M$ を求めることで、距離の違いを消去し真の明るさ（光度 $L$）を比較できます。
+              </p>
+            </div>
+
+            <div class="bg-neutral-50 border border-neutral-300 p-2.5 space-y-1.5">
+              <div class="text-[11px] font-bold text-neutral-900">
+                B. 色指数からの有効温度 $T_{\text{eff}}$ 導出（黒体輻射モデル）
+              </div>
+              <div class="text-xs overflow-x-auto py-1">
+                $$T_{\text{eff}} = 4600 \left( \frac{1}{0.92(B-V) + 1.7} + \frac{1}{0.92(B-V) + 0.62} \right)\text{ [K]}$$
+              </div>
+              <p class="text-[11px] text-neutral-600 leading-relaxed">
+                プランクの黒体輻射法則により、高温の星ほど短波長（青色 $G_{BP}$）が強く色指数は負〜小となり、低温の星ほど長波長（赤色 $G_{RP}$）が強く色指数は大となります。
+              </p>
+            </div>
+          </div>
+
+          <!-- インタラクティブ物理量算出シミュレータ（選択された恒星とリアルタイム連動） -->
+          <div class="bg-white border border-neutral-900 p-3 space-y-3">
+            <div class="flex items-center justify-between border-b border-neutral-200 pb-1.5">
+              <h3 class="text-xs font-bold">物理量算出シミュレータ（選択恒星の代入トレース）</h3>
+              <span id="calc-star-title" class="text-[11px] font-mono-num font-bold px-1.5 py-0.5 bg-neutral-900 text-white">
+                太陽 (基準)
+              </span>
+            </div>
+
+            <p class="text-[11px] text-neutral-600">
+              HR図上の星をクリックするか、下のスライダーを動かすと、観測量 $(m, \varpi, G_{BP}-G_{RP})$ から物理量 $(M, T_{\text{eff}}, L, R)$ が算出される計算過程をリアルタイムに追跡できます。
+            </p>
+
+            <!-- 入力パラメータ操作スライダー -->
+            <div class="space-y-2.5 bg-neutral-50 border border-neutral-300 p-2.5">
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <label for="sim-input-m" class="font-semibold">観測1: 視等級 $m_G$ [mag]</label>
+                  <span id="sim-val-m" class="font-mono-num font-bold">4.83 mag</span>
+                </div>
+                <input id="sim-input-m" type="range" min="-1.5" max="18.5" step="0.01" value="4.83" class="monotone-slider" />
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <label for="sim-input-plx" class="font-semibold">観測2: 年周視差 $\varpi$ [mas]</label>
+                  <span id="sim-val-plx" class="font-mono-num font-bold">100.00 mas</span>
+                </div>
+                <input id="sim-input-plx" type="range" min="0.5" max="300.0" step="0.1" value="100.0" class="monotone-slider" />
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <label for="sim-input-bprp" class="font-semibold">観測3: 色指数 $G_{BP} - G_{RP}$ [mag]</label>
+                  <span id="sim-val-bprp" class="font-mono-num font-bold">0.82 mag</span>
+                </div>
+                <input id="sim-input-bprp" type="range" min="-0.55" max="3.40" step="0.01" value="0.82" class="monotone-slider" />
+              </div>
+            </div>
+
+            <!-- ステップバイステップ代入計算過程出力 -->
+            <div class="border border-neutral-900 bg-white p-2.5 space-y-2 font-mono-num text-xs">
+              <div class="text-[10px] font-bold uppercase text-neutral-500 border-b border-neutral-200 pb-1">
+                計算プロセス展開 (Step-by-Step Substitution)
+              </div>
+
+              <div class="space-y-1">
+                <div class="text-[11px] text-neutral-600">① 距離 $d$ と 距離モジュラス $\mu = m - M$:</div>
+                <div id="trace-formula-dist" class="pl-2 text-neutral-950 font-medium">
+                  d = 1000 / 100.00 = 10.00 pc (32.6 光年)
+                </div>
+              </div>
+
+              <div class="space-y-1 border-t border-neutral-200 pt-1.5">
+                <div class="text-[11px] text-neutral-600">② 絶対等級 $M = m + 5 + 5\log_{10}(\varpi/1000)$:</div>
+                <div id="trace-formula-abs" class="pl-2 text-neutral-950 font-bold">
+                  M = 4.83 + 5 + 5 × log10(0.1000) = 4.83 mag
+                </div>
+              </div>
+
+              <div class="space-y-1 border-t border-neutral-200 pt-1.5">
+                <div class="text-[11px] text-neutral-600">③ 有効温度 $T_{\text{eff}}$ と 物理的色温度:</div>
+                <div class="pl-2 flex items-center justify-between">
+                  <span id="trace-formula-teff" class="font-bold text-neutral-950">T_eff = 5,772 K (G型)</span>
+                  <span id="trace-color-swatch" class="inline-block w-5 h-5 border border-neutral-900" title="黒体輻射色温度"></span>
+                </div>
+              </div>
+
+              <div class="space-y-1 border-t border-neutral-200 pt-1.5">
+                <div class="text-[11px] text-neutral-600">④ 光度 $L/L_\odot$ と シュテファン＝ボルツマン半径 $R/R_\odot$:</div>
+                <div id="trace-formula-lumrad" class="pl-2 text-neutral-950 font-medium">
+                  L = 1.00 L☉ ,  R = √(L) × (5772/T)^2 = 1.00 R☉
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 学習者向け：手計算・検算ミニ演習モジュール -->
+          <div class="bg-white border border-neutral-900 p-3 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold">【演習】実観測データから絶対等級 $M$ を算出してみよう</h3>
+              <button id="btn-new-quiz" type="button" class="text-[11px] px-2 py-0.5 border border-neutral-800 bg-neutral-100 hover:bg-neutral-200 font-medium">
+                別の星を出題
+              </button>
+            </div>
+            <div id="quiz-question-box" class="text-xs bg-neutral-50 border border-neutral-300 p-2.5 space-y-1 font-mono-num">
+              <div>課題天体: <span id="quiz-star-name" class="font-bold">-</span></div>
+              <div>観測値: 視等級 m = <span id="quiz-m" class="font-bold">-</span> mag, 年周視差 ϖ = <span id="quiz-plx" class="font-bold">-</span> mas</div>
+              <div class="text-[11px] text-neutral-600">ヒント: $\log_{10}(\varpi/1000) =$ <span id="quiz-log-hint">-</span></div>
+            </div>
+            <div class="flex items-center gap-2">
+              <input id="input-quiz-answer" type="number" step="0.01" placeholder="算出した絶対等級 M (例: 4.83)" class="flex-1 text-xs font-mono-num border border-neutral-800 px-2.5 py-1.5 focus:outline-none" />
+              <button id="btn-check-quiz" type="button" class="px-3 py-1.5 bg-neutral-950 text-white text-xs font-bold border border-neutral-950 hover:bg-neutral-800">
+                判定
+              </button>
+            </div>
+            <div id="quiz-feedback" class="text-xs font-medium hidden p-2 border border-neutral-800 bg-neutral-100"></div>
+          </div>
+        </section>
+
+        <!-- ==================== STEP 3: どうなるのか（HR図からの物理的解釈） ==================== -->
+        <section id="panel-step-3" class="space-y-3.5 hidden">
+
+          <!-- 1. 等年齢線フィッティング (Isochrone Fitting) -->
+          <div class="bg-white border border-neutral-900 p-3 space-y-2.5">
+            <div class="flex items-center justify-between border-b border-neutral-200 pb-1.5">
+              <h2 class="text-xs font-bold uppercase tracking-wider">③-A 等年齢線フィッティング（星団年齢の決定）</h2>
+              <label class="flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
+                <input id="chk-step3-isochrone" type="checkbox" checked class="accent-neutral-950" />
+                <span>等年齢線を表示</span>
+              </label>
+            </div>
+
+            <p class="text-[11px] text-neutral-700 leading-relaxed">
+              大質量で高温・高光度な星ほど核融合が激しく、短い寿命で主系列から離脱して赤色巨星へと進化します。そのため、星団の<strong>主系列離脱点（MSTO: Turnoff Point）</strong>に理論等年齢線を重ねることで、星団の年齢を読み解くことができます。
+            </p>
+
+            <!-- 年齢スライダー -->
+            <div class="bg-neutral-50 border border-neutral-300 p-2.5 space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-semibold">理論モデル年齢 $\log_{10}(\text{Age/yr})$:</span>
+                <span id="iso-age-display" class="font-mono-num font-bold text-neutral-950 bg-white px-1.5 py-0.5 border border-neutral-800">
+                  10^8.80 yr (6.3 億年)
+                </span>
+              </div>
+              <input id="slider-isochrone-age" type="range" min="7.10" max="10.05" step="0.02" value="8.80" class="monotone-slider" />
+              <div class="flex justify-between text-[10px] font-mono-num text-neutral-500">
+                <span>1,200万年 (7.1)</span>
+                <span>1億年 (8.0)</span>
+                <span>10億年 (9.0)</span>
+                <span>110億年 (10.05)</span>
+              </div>
+
+              <!-- 代表的な星団年齢へのワンクリックフィッティング -->
+              <div class="pt-1">
+                <div class="text-[10px] font-semibold text-neutral-600 mb-1">代表的な星団年齢に合わせて比較:</div>
+                <div class="grid grid-cols-3 gap-1.5">
+                  <button type="button" data-fit-cluster="pleiades" data-fit-age="8.00" class="btn-fit-age py-1 px-1.5 text-[11px] font-mono-num border border-neutral-800 bg-white hover:bg-neutral-900 hover:text-white transition">
+                    プレアデス<br />1.0億年 (8.0)
+                  </button>
+                  <button type="button" data-fit-cluster="hyades" data-fit-age="8.81" class="btn-fit-age py-1 px-1.5 text-[11px] font-mono-num border border-neutral-800 bg-white hover:bg-neutral-900 hover:text-white transition">
+                    ヒアデス<br />6.5億年 (8.81)
+                  </button>
+                  <button type="button" data-fit-cluster="m67" data-fit-age="9.60" class="btn-fit-age py-1 px-1.5 text-[11px] font-mono-num border border-neutral-800 bg-white hover:bg-neutral-900 hover:text-white transition">
+                    M67星団<br />40億年 (9.60)
+                  </button>
+                </div>
+              </div>
+
+              <!-- 現在のターンオフ理論値 -->
+              <div id="iso-turnoff-summary" class="text-[11px] font-mono-num bg-white border border-neutral-300 p-2 space-y-0.5">
+                <div>離脱点 (MSTO) 質量: <strong>約 2.5 M☉</strong></div>
+                <div>離脱点 色指数 / 温度: <strong>BP-RP = 0.22 mag (7,800 K)</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. 選択恒星の物理的解釈（分類・質量・主系列寿命・半径） -->
+          <div class="bg-white border border-neutral-900 p-3 space-y-2.5">
+            <div class="flex items-center justify-between border-b border-neutral-200 pb-1.5">
+              <h3 class="text-xs font-bold uppercase tracking-wider">③-B 選択恒星の分類・質量・寿命の推定</h3>
+              <span id="interp-star-badge" class="text-[10px] font-mono-num font-bold px-1.5 py-0.5 border border-neutral-900">
+                主系列星
+              </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 font-mono-num text-xs">
+              <div class="border border-neutral-300 bg-neutral-50 p-2">
+                <div class="text-[10px] text-neutral-500">天体名 / Source ID</div>
+                <div id="interp-star-name" class="font-bold truncate mt-0.5">-</div>
+              </div>
+              <div class="border border-neutral-300 bg-neutral-50 p-2">
+                <div class="text-[10px] text-neutral-500">スペクトル型 / 有効温度</div>
+                <div id="interp-star-spec" class="font-bold mt-0.5">-</div>
+              </div>
+              <div class="border border-neutral-300 bg-neutral-50 p-2">
+                <div class="text-[10px] text-neutral-500">推定質量 ($M_*/M_\odot$)</div>
+                <div id="interp-star-mass" class="font-bold mt-0.5">-</div>
+              </div>
+              <div class="border border-neutral-300 bg-neutral-50 p-2">
+                <div class="text-[10px] text-neutral-500">水素核融合寿命 ($\tau_{\text{MS}}$)</div>
+                <div id="interp-star-life" class="font-bold mt-0.5">-</div>
+              </div>
+              <div class="border border-neutral-300 bg-neutral-50 p-2">
+                <div class="text-[10px] text-neutral-500">光度 ($L/L_\odot$)</div>
+                <div id="interp-star-lum" class="font-bold mt-0.5">-</div>
+              </div>
+              <div class="border border-neutral-300 bg-neutral-50 p-2">
+                <div class="text-[10px] text-neutral-500">推定半径 ($R/R_\odot$)</div>
+                <div id="interp-star-rad" class="font-bold mt-0.5">-</div>
+              </div>
+            </div>
+
+            <div id="interp-region-explanation" class="text-xs text-neutral-800 bg-neutral-100 border border-neutral-400 p-2.5 leading-relaxed">
+              HR図上の星をクリックすると、その位置から読み取れる進化段階・質量・寿命の物理的解釈がここに表示されます。
+            </div>
+          </div>
+
+          <!-- 3. 星の種類の構成統計（全体またはブラシ選択範囲） -->
+          <div class="bg-white border border-neutral-900 p-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold uppercase tracking-wider">③-C HR図上の領域別分布統計</h3>
+              <span id="stats-scope-label" class="text-[10px] font-mono-num text-neutral-600">全プロット対象</span>
+            </div>
+            <div id="region-stats-grid" class="grid grid-cols-2 gap-1.5 font-mono-num text-xs"></div>
+          </div>
+
+        </section>
+
+      </div>
+    </aside>
+
+    <!-- 右ペイン: メインHR図キャンバス＆オーバーレイ制御バー -->
+    <section class="flex-1 flex flex-col bg-white overflow-hidden">
+
+      <!-- HR図上部コントロールツールバー（厳格な白黒モノトーン） -->
+      <div class="border-b border-neutral-900 bg-neutral-50 px-3 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0 text-xs">
+
+        <!-- 軸モード切替 -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center border border-neutral-900 bg-white">
+            <span class="px-2 py-1 bg-neutral-100 border-r border-neutral-300 font-semibold text-[11px]">縦軸:</span>
+            <button id="toolbar-y-abs" type="button" class="px-2 py-1 font-semibold bg-neutral-950 text-white text-[11px]">
+              絶対等級 M_G
+            </button>
+            <button id="toolbar-y-app" type="button" class="px-2 py-1 font-semibold bg-white text-neutral-800 hover:bg-neutral-100 text-[11px]">
+              視等級 m_G (補正前)
+            </button>
+          </div>
+
+          <div class="flex items-center border border-neutral-900 bg-white">
+            <span class="px-2 py-1 bg-neutral-100 border-r border-neutral-300 font-semibold text-[11px]">横軸:</span>
+            <button id="toolbar-x-bprp" type="button" class="px-2 py-1 font-mono-num font-semibold bg-neutral-950 text-white text-[11px]">
+              G_BP − G_RP
+            </button>
+            <button id="toolbar-x-bv" type="button" class="px-2 py-1 font-mono-num font-semibold bg-white text-neutral-800 hover:bg-neutral-100 text-[11px]">
+              B − V
+            </button>
+          </div>
+        </div>
+
+        <!-- オーバーレイ表示トグル -->
+        <div class="flex flex-wrap items-center gap-3 text-[11px] font-medium">
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input id="chk-overlay-isochrone" type="checkbox" checked class="accent-neutral-950" />
+            <span>等年齢線</span>
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input id="chk-overlay-multi-iso" type="checkbox" class="accent-neutral-950" />
+            <span>複数年齢比較</span>
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input id="chk-overlay-radius" type="checkbox" checked class="accent-neutral-950" />
+            <span>等半径線 ($R_\odot$)</span>
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input id="chk-overlay-regions" type="checkbox" checked class="accent-neutral-950" />
+            <span>分類領域</span>
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input id="chk-overlay-landmarks" type="checkbox" checked class="accent-neutral-950" />
+            <span>太陽・著名星</span>
+          </label>
+        </div>
+
+        <!-- 操作モード（ズーム vs ブラシ選択）＆ リセット -->
+        <div class="flex items-center gap-1.5">
+          <div class="flex items-center border border-neutral-900 bg-white text-[11px]">
+            <button id="btn-interact-inspect" type="button" class="px-2 py-1 font-semibold bg-neutral-950 text-white">
+              詳細・ズーム
+            </button>
+            <button id="btn-interact-brush" type="button" class="px-2 py-1 font-semibold bg-white text-neutral-800 hover:bg-neutral-100">
+              矩形領域選択
+            </button>
+          </div>
+          <button id="btn-reset-zoom" type="button" class="px-2 py-1 text-[11px] font-semibold border border-neutral-900 bg-white hover:bg-neutral-100">
+            視点リセット
+          </button>
+        </div>
+      </div>
+
+      <!-- HR図描画コンテナ (Canvas + D3 SVG) -->
+      <div class="flex-1 relative bg-white overflow-hidden">
+        <div id="hr-chart-container" class="w-full h-full"></div>
+      </div>
+
+      <!-- 下部ステータス＆物理的色温度凡例バー -->
+      <footer class="border-t border-neutral-900 bg-neutral-50 px-4 py-2 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0 text-xs">
+        <!-- 表面温度に応じた色温度スケール（仕様書3節：物理的色彩の凡例） -->
+        <div class="flex items-center gap-2.5 w-full sm:w-auto">
+          <span class="text-[11px] font-bold text-neutral-800 shrink-0">物理的色温度 ($T_{\text{eff}}$):</span>
+          <span class="text-[10px] font-mono-num text-neutral-700 shrink-0">高温 30,000K (O/B)</span>
+          <div class="w-36 md:w-48 h-3 border border-neutral-900 temp-color-gradient shrink-0"></div>
+          <span class="text-[10px] font-mono-num text-neutral-700 shrink-0">低温 2,800K (M)</span>
+        </div>
+
+        <!-- 選択中の恒星クイックサマリー -->
+        <div id="footer-selected-summary" class="font-mono-num text-[11px] text-neutral-800 truncate">
+          恒星をクリックすると観測値と算出物理量がここに表示されます
+        </div>
+      </footer>
+
+    </section>
+
+  </main>
+
+  <!-- ==================== 天文学習フレームワーク解説モーダル（ポップアップ） ==================== -->
+  <div id="modal-framework-guide" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4 select-text">
+    <div class="bg-white border-2 border-neutral-950 max-w-3xl w-full max-h-[88vh] flex flex-col shadow-xl">
+      <div class="border-b border-neutral-900 px-5 py-3.5 flex items-center justify-between bg-neutral-950 text-white">
+        <div>
+          <h2 class="text-sm md:text-base font-bold">天文学習フレームワーク：HR図による恒星進化の科学的探究プロセス</h2>
+          <p class="text-[11px] text-neutral-300 font-mono-num">OBSERVATION → PHYSICAL CONVERSION → ASTROPHYSICAL INTERPRETATION</p>
+        </div>
+        <button id="btn-close-guide" type="button" class="px-2.5 py-1 text-xs font-mono-num font-bold border border-white hover:bg-white hover:text-neutral-950 transition">
+          閉じる [×]
+        </button>
+      </div>
+
+      <div class="p-5 overflow-y-auto space-y-5 text-xs leading-relaxed text-neutral-800">
+        <!-- 3段階の概要図 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="border border-neutral-900 p-3 bg-neutral-50">
+            <div class="font-mono-num font-bold text-xs border-b border-neutral-400 pb-1 mb-2">
+              STEP ① 何を観測するのか
+            </div>
+            <p class="mb-2">地球や宇宙望遠鏡（Gaia等）から直接測定できるのは<strong>見かけの量</strong>と<strong>幾何学的な角度</strong>です。</p>
+            <ul class="list-disc pl-4 space-y-1">
+              <li><strong>視等級 ($m$):</strong> 見かけの明るさ</li>
+              <li><strong>年周視差 ($\varpi$):</strong> 地球公転による視差角（ミリ秒角）</li>
+              <li><strong>色指数 ($G_{BP}-G_{RP}$):</strong> 波長別の等級差</li>
+            </ul>
+          </div>
+
+          <div class="border border-neutral-900 p-3 bg-neutral-50">
+            <div class="font-mono-num font-bold text-xs border-b border-neutral-400 pb-1 mb-2">
+              STEP ② 何を算出するのか
+            </div>
+            <p class="mb-2">見かけの明るさから距離の影響を取り除き、恒星固有の<strong>物理量</strong>へ変換します。</p>
+            <ul class="list-disc pl-4 space-y-1">
+              <li><strong>距離 ($d$):</strong> $d = 1000/\varpi\text{ [pc]}$</li>
+              <li><strong>絶対等級 ($M$):</strong> 10 pc 基準の本来の明るさ</li>
+              <li><strong>有効温度 ($T_{\text{eff}}$):</strong> 黒体輻射モデルによる表面温度</li>
+            </ul>
+          </div>
+
+          <div class="border border-neutral-900 p-3 bg-neutral-50">
+            <div class="font-mono-num font-bold text-xs border-b border-neutral-400 pb-1 mb-2">
+              STEP ③ どうなるのか
+            </div>
+            <p class="mb-2">横軸に温度（色指数）、縦軸に絶対等級（光度）をとった<strong>HR図</strong>から星の運命を読み解きます。</p>
+            <ul class="list-disc pl-4 space-y-1">
+              <li><strong>星の分類:</strong> 主系列星・赤色巨星・白色矮星</li>
+              <li><strong>質量と寿命:</strong> 主系列上の位置から核融合寿命を算出</li>
+              <li><strong>等年齢線:</strong> 星団のターンオフから年齢を決定</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- 数式と物理法則の詳細解説 -->
+        <div class="border border-neutral-900 p-4 space-y-3 bg-white">
+          <h3 class="font-bold text-sm border-b border-neutral-200 pb-1">主要物理法則と算出式</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div class="font-bold mb-1">1. 距離モジュラスと絶対等級 $M$</div>
+              <p>光の強さは距離の2乗に反比例するため、見かけの視等級 $m$ と 10 pc での絶対等級 $M$ の間には次の関係が成り立ちます。</p>
+              <div class="my-2 p-2 bg-neutral-50 border border-neutral-300">
+                $$M = m + 5 + 5 \log_{10}\!\left(\frac{\varpi\text{ [mas]}}{1000}\right)$$
+              </div>
+            </div>
+            <div>
+              <div class="font-bold mb-1">2. シュテファン＝ボルツマン則と恒星半径 $R$</div>
+              <p>恒星の光度 $L$ は表面積 $4\pi R^2$ と温度の4乗 $T_{\text{eff}}^4$ に比例するため、HR図上の位置から直接半径 $R$ が求まります。</p>
+              <div class="my-2 p-2 bg-neutral-50 border border-neutral-300">
+                $$L = 4\pi R^2 \sigma T_{\text{eff}}^4 \implies \frac{R}{R_\odot} = \sqrt{\frac{L}{L_\odot}} \left(\frac{T_\odot}{T_{\text{eff}}}\right)^2$$
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- デザインポリシーの説明 -->
+        <div class="border border-neutral-300 bg-neutral-50 p-3 text-[11px] text-neutral-600">
+          <strong>デザインポリシーについて：</strong> 本システムは学術論文の図表に準拠し、UI・枠線・グリッド・文字はすべて白黒モノトーンで構成されています。散布図上の恒星プロットおよび等年齢線カーブにのみ、物理的な表面温度（プランクの黒体輻射色温度：高温＝青〜白、中温＝黄、低温＝赤オレンジ）を表現する目的で色彩を使用しています。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- アプリケーションスクリプト -->
+  <script src="js/astrophysics.js"></script>
+  <script src="js/gaia-tap.js"></script>
+  <script src="js/hr-chart.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,171 @@
+/* ==========================================================================
+   教育・研究用 WebベースHR図学習システム
+   デザインポリシー: 白黒ベース（モノトーン基調）＋ 散布図・等年齢線のみ物理的色彩を限定使用
+   ========================================================================== */
+
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f8f8;
+  --bg-tertiary: #f0f0f0;
+  --text-primary: #0a0a0a;
+  --text-secondary: #404040;
+  --text-muted: #737373;
+  --border-strong: #171717;
+  --border-subtle: #d4d4d4;
+  --border-light: #e5e5e5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Inter", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 学術論文・数式・数値用フォント */
+.font-mono-num {
+  font-family: "JetBrains Mono", "Consolas", "Monaco", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.font-serif-academic {
+  font-family: "Times New Roman", "Noto Serif JP", "Yu Mincho", serif;
+}
+
+/* カスタムスクロールバー（厳格なモノトーン） */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f5f5f5;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #a3a3a3;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #525252;
+}
+
+/* 3段階プロセスタブのアクティブ状態 */
+.step-tab {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.step-tab.active {
+  background-color: #0a0a0a;
+  color: #ffffff;
+  border-color: #0a0a0a;
+}
+
+.step-tab.active .step-badge {
+  background-color: #ffffff;
+  color: #0a0a0a;
+}
+
+/* モノトーンスライダー */
+input[type="range"].monotone-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: #d4d4d4;
+  outline: none;
+  border-radius: 0;
+}
+
+input[type="range"].monotone-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #0a0a0a;
+  border: 2px solid #ffffff;
+  outline: 1px solid #0a0a0a;
+  cursor: pointer;
+}
+
+input[type="range"].monotone-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: #0a0a0a;
+  border: 2px solid #ffffff;
+  outline: 1px solid #0a0a0a;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+/* D3 SVG 軸スタイル（学術論文図表風：白黒厳守・内向き目盛り） */
+.hr-axis path,
+.hr-axis line {
+  stroke: #171717;
+  stroke-width: 1px;
+  shape-rendering: crispEdges;
+}
+
+.hr-axis text {
+  fill: #0a0a0a;
+  font-family: "JetBrains Mono", "Consolas", monospace;
+  font-size: 11px;
+}
+
+.hr-grid line {
+  stroke: #e5e5e5;
+  stroke-width: 1px;
+  stroke-dasharray: 2, 2;
+  shape-rendering: crispEdges;
+}
+
+.hr-grid path {
+  stroke-width: 0;
+}
+
+/* 領域選択ブラシ（白黒モノトーン厳守） */
+.brush .selection {
+  fill: rgba(0, 0, 0, 0.06);
+  stroke: #0a0a0a;
+  stroke-width: 1px;
+  stroke-dasharray: 4, 2;
+}
+
+/* 物理的色温度バー（散布図の凡例としてのみカラー許可） */
+.temp-color-gradient {
+  background: linear-gradient(
+    to right,
+    #9bb2ff 0%,
+    #b6c8ff 15%,
+    #dae4ff 28%,
+    #f9f6ff 40%,
+    #fff4e8 52%,
+    #ffe3bc 65%,
+    #ffc78e 78%,
+    #ff9d5c 90%,
+    #ff6b3d 100%
+  );
+}
+
+/* テーブル行の選択状態 */
+.star-row-selected {
+  background-color: #171717 !important;
+  color: #ffffff !important;
+}
+
+.star-row-selected td {
+  color: #ffffff !important;
+}
+
+/* モーダル背景 */
+.modal-backdrop {
+  background-color: rgba(10, 10, 10, 0.65);
+  backdrop-filter: blur(1px);
+}
+
